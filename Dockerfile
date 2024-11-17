@@ -1,39 +1,26 @@
-# Step 1: Build Stage
-FROM node:18-alpine AS builder
-
-# Set working directory
-WORKDIR /app
-
-# Copy package files and install dependencies
-COPY package.json package-lock.json ./
-RUN npm install --frozen-lockfile
-
-# Copy application source code
-COPY . .
-
-# Build the Remix application
-RUN npm run build
-
-# Prune dev dependencies to minimize image size
-RUN npm prune --production
-
-# Step 2: Runtime Stage
+# Use the official Node.js 18 image as a parent image
 FROM node:18-alpine
 
-# Set working directory
+# Set the working directory in the container
 WORKDIR /app
 
-# Copy production dependencies and built files from builder stage
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/build ./build
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
+# Copy package.json and package-lock.json (if available)
+COPY package*.json ./
 
-# Set environment to production
-ENV NODE_ENV=production
+# Install dependencies
+RUN npm ci
 
-# Expose the port Remix runs on
+# Copy the rest of your app's source code
+COPY . .
+
+# Build your Next.js app
+RUN npm run build
+
+# Expose the port your app runs on
 EXPOSE 3005
 
-# Command to run the application
+# Set environment variable
+ENV NODE_ENV production
+
+# Start the app
 CMD ["npm", "start"]
