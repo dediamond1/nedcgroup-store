@@ -1,38 +1,39 @@
-# 1. Use the official Node.js image as a base
+# Step 1: Build Stage
 FROM node:18-alpine AS builder
 
-# 2. Set the working directory
+# Set working directory
 WORKDIR /app
 
-# 3. Copy package.json and package-lock.json (or yarn.lock) to install dependencies
+# Copy package files and install dependencies
 COPY package.json package-lock.json ./
+RUN npm install --frozen-lockfile
 
-# 4. Install dependencies
-RUN npm install
-
-# 5. Copy the rest of the application code
+# Copy application source code
 COPY . .
 
-# 6. Build the Remix application
+# Build the Remix application
 RUN npm run build
 
-# 7. Install only production dependencies
+# Prune dev dependencies to minimize image size
 RUN npm prune --production
 
-# 8. Use a smaller image for the runtime
+# Step 2: Runtime Stage
 FROM node:18-alpine
 
-# 9. Set the working directory
+# Set working directory
 WORKDIR /app
 
-# 10. Copy only the production dependencies and build files
+# Copy production dependencies and built files from builder stage
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package.json ./package.json
 
-# 11. Expose the port Remix runs on
+# Set environment to production
+ENV NODE_ENV=production
+
+# Expose the port Remix runs on
 EXPOSE 3005
 
-# 12. Command to start the server
+# Command to run the application
 CMD ["npm", "start"]
