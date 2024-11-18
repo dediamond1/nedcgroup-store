@@ -212,7 +212,7 @@ export default function UploadPage() {
                   <option value="">Välj en artikel</option>
                   {articles.map((article) => (
                     <option key={article._id} value={article.articleId}>
-                      {article.name}
+                      {article.articleId} - {article.name}
                     </option>
                   ))}
                 </select>
