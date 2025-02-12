@@ -1,9 +1,21 @@
+"use client";
+
 import { useState, useCallback, useEffect } from "react";
-import { json, LoaderFunction, ActionFunction, redirect } from "@remix-run/node";
-import { useLoaderData, useFetcher, Outlet, Link, useRouteError, isRouteErrorResponse } from "@remix-run/react";
+import {
+  json,
+  type LoaderFunction,
+  type ActionFunction,
+} from "@remix-run/node";
+import {
+  useLoaderData,
+  useFetcher,
+  Outlet,
+  useRouteError,
+  isRouteErrorResponse,
+} from "@remix-run/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Upload, AlertCircle, CheckCircle, Package, X } from 'lucide-react';
-import { getSession } from "../utils/sessions.server";
+import { FileText, Upload, AlertCircle, CheckCircle, X } from "lucide-react";
+import { requireUserToken } from "~/utils/auth.server";
 import { baseUrl } from "~/constants/api";
 
 interface Article {
@@ -20,68 +32,75 @@ interface FileContent {
 
 export const loader: LoaderFunction = async ({ request }) => {
   try {
-    const session = await getSession(request.headers.get("Cookie"));
-    const token = session.get('token');
-    if (!token) {
-      return redirect('/');
-    }
+    const token = await requireUserToken(request);
 
-    const response = await fetch(`${baseUrl}/api/subcategory/lyca/articles`, {
-      method: 'POST',
+    const response = await fetch(`${baseUrl}/subcategory/lyca/articles`, {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
     if (!response.ok) {
-      throw json({ message: "Failed to fetch articles" }, { status: response.status });
+      throw json(
+        { message: "Failed to fetch articles" },
+        { status: response.status }
+      );
     }
 
     const data = await response.json();
     return json(data.articallist);
   } catch (error) {
     console.error("Loader error:", error);
-    throw json({ message: "An error occurred while fetching data" }, { status: 500 });
+    throw error; // Let Remix handle the error
   }
 };
 
 export const action: ActionFunction = async ({ request }) => {
   try {
-    const session = await getSession(request.headers.get("Cookie"));
-    const token = session.get('token');
-    if (!token) {
-      return json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const token = await requireUserToken(request);
 
     const formData = await request.formData();
     const selectedArticle = formData.get("articleId");
     const fileContent = formData.get("fileContent") as any;
     const articleName = formData.get("articleName") as string;
-    
+
     if (!selectedArticle || !fileContent) {
       return json({ error: "Vouchers finns redan" }, { status: 400 });
     }
 
     const response = await fetch(`${baseUrl}/api/vouchers`, {
-      method: 'POST',
-      body: JSON.stringify({ articleId: selectedArticle, vouchers: JSON.parse(fileContent) }),
+      method: "POST",
+      body: JSON.stringify({
+        articleId: selectedArticle,
+        vouchers: JSON.parse(fileContent),
+      }),
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      return json({ error: errorData.error || 'An error occurred while uploading vouchers' }, { status: response.status });
+      return json(
+        {
+          error:
+            errorData.error || "An error occurred while uploading vouchers",
+        },
+        { status: response.status }
+      );
     }
 
     const result = await response.json();
-    
-    if (result.error === 'Duplicate vouchers found') {
-      return json({ error: 'Dubletter av koder hittades i filen' }, { status: 400 });
+
+    if (result.error === "Duplicate vouchers found") {
+      return json(
+        { error: "Dubletter av koder hittades i filen" },
+        { status: 400 }
+      );
     }
-    
+
     return json({ success: true, articleName });
   } catch (error) {
     console.error("Action error:", error);
@@ -112,41 +131,54 @@ export default function UploadPage() {
     }
   }, [fetcher.data, resetForm]);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+        const selectedFile = e.target.files[0];
+        setFile(selectedFile);
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        const lines = content.split('\n').map(line => line.trim().replace('\r', '')).filter(line => line !== '');
-        setFileContent({
-          lines,
-          totalLines: lines.length,
-          totalLength: content.length,
-        });
-      };
-      reader.readAsText(selectedFile);
-    }
-  }, []);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const content = event.target?.result as string;
+          const lines = content
+            .split("\n")
+            .map((line) => line.trim().replace("\r", ""))
+            .filter((line) => line !== "");
+          setFileContent({
+            lines,
+            totalLines: lines.length,
+            totalLength: content.length,
+          });
+        };
+        reader.readAsText(selectedFile);
+      }
+    },
+    []
+  );
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedArticle && fileContent) {
-      setIsModalOpen(true);
-    } else {
-      alert("Välj en artikel och ladda upp en fil.");
-    }
-  }, [selectedArticle, fileContent]);
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (selectedArticle && fileContent) {
+        setIsModalOpen(true);
+      } else {
+        alert("Välj en artikel och ladda upp en fil.");
+      }
+    },
+    [selectedArticle, fileContent]
+  );
 
   const confirmUpload = useCallback(() => {
     if (fileContent) {
       const formData = new FormData();
       formData.append("articleId", selectedArticle);
-      const selectedArticleName = articles.find(a => a.articleId === selectedArticle)?.name;
+      const selectedArticleName = articles.find(
+        (a) => a.articleId === selectedArticle
+      )?.name;
       formData.append("articleName", selectedArticleName || "");
-      const cleanLines = fileContent.lines.map(line => line.replace('\r', ''));
+      const cleanLines = fileContent.lines.map((line) =>
+        line.replace("\r", "")
+      );
       formData.append("fileContent", JSON.stringify(cleanLines));
       fetcher.submit(formData, { method: "post" });
       setIsModalOpen(false);
@@ -154,30 +186,14 @@ export default function UploadPage() {
   }, [articles, fetcher, fileContent, selectedArticle]);
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-indigo-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <Link to="/lager" className="text-3xl font-bold">Nedcgroup Lager</Link>
-            <nav className="flex space-x-6">
-              <Link to="/lager" className="text-white hover:text-indigo-200 transition font-medium flex items-center">
-                <Package className="mr-2 h-5 w-5" />
-                Lager
-              </Link>
-              <Link to="/ladda-upp" className="text-white hover:text-indigo-200 transition font-medium flex items-center">
-                <Upload className="mr-2 h-5 w-5" />
-                Fyll På
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
-
+    <div className="bg-gray-100">
       <main className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="bg-white shadow-xl rounded-lg overflow-hidden">
           <div className="px-4 py-5 sm:p-6">
-            <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">Ladda upp artikelfil</h2>
-            
+            <h1 className="text-3xl font-bold text-gray-900 text-center mb-8">
+              Ladda upp artikelfil
+            </h1>
+
             <AnimatePresence>
               {showSuccess && (
                 <motion.div
@@ -189,9 +205,15 @@ export default function UploadPage() {
                 >
                   <div className="flex items-center">
                     <CheckCircle className="h-6 w-6 text-green-400 mr-3" />
-                    <span className="text-green-700 font-medium">Filen har laddats upp för artikel: {fetcher.data?.articleName}</span>
+                    <span className="text-green-700 font-medium">
+                      Filen har laddats upp för artikel:{" "}
+                      {fetcher.data?.articleName}
+                    </span>
                   </div>
-                  <button onClick={() => setShowSuccess(false)} className="text-green-700 hover:text-green-900">
+                  <button
+                    onClick={() => setShowSuccess(false)}
+                    className="text-green-700 hover:text-green-900"
+                  >
                     <X className="h-5 w-5" />
                   </button>
                 </motion.div>
@@ -200,7 +222,10 @@ export default function UploadPage() {
 
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="bg-gray-50 p-6 rounded-lg shadow-inner">
-                <label htmlFor="article" className="block text-lg font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="article"
+                  className="block text-lg font-medium text-gray-700 mb-2"
+                >
                   Välj artikel
                 </label>
                 <select
@@ -220,7 +245,10 @@ export default function UploadPage() {
 
               {selectedArticle && (
                 <div className="bg-gray-50 p-6 rounded-lg shadow-inner">
-                  <label htmlFor="file-upload" className="block text-lg font-medium text-gray-700 mb-2">
+                  <label
+                    htmlFor="file-upload"
+                    className="block text-lg font-medium text-gray-700 mb-2"
+                  >
                     Ladda upp textfil
                   </label>
                   <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md bg-white">
@@ -232,7 +260,14 @@ export default function UploadPage() {
                           className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
                         >
                           <span>Ladda upp en fil</span>
-                          <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".txt" />
+                          <input
+                            id="file-upload"
+                            name="file-upload"
+                            type="file"
+                            className="sr-only"
+                            onChange={handleFileChange}
+                            accept=".txt"
+                          />
                         </label>
                         <p className="pl-1">eller dra och släpp</p>
                       </div>
@@ -248,26 +283,47 @@ export default function UploadPage() {
                   animate={{ opacity: 1, y: 0 }}
                   className="bg-white rounded-lg shadow-md p-6 border border-gray-200"
                 >
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Filstatistik</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                    Filstatistik
+                  </h3>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-8">
                     <div className="sm:col-span-1">
-                      <dt className="text-sm font-medium text-gray-500">Antal rader</dt>
-                      <dd className="mt-1 text-2xl font-semibold text-indigo-600">{fileContent.totalLines}</dd>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Antal rader
+                      </dt>
+                      <dd className="mt-1 text-2xl font-semibold text-indigo-600">
+                        {fileContent.totalLines}
+                      </dd>
                     </div>
                     <div className="sm:col-span-1">
-                      <dt className="text-sm font-medium text-gray-500">Total längd</dt>
-                      <dd className="mt-1 text-2xl font-semibold text-indigo-600">{fileContent.totalLength} tecken</dd>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Total längd
+                      </dt>
+                      <dd className="mt-1 text-2xl font-semibold text-indigo-600">
+                        {fileContent.totalLength} tecken
+                      </dd>
                     </div>
                     <div className="sm:col-span-2">
-                      <dt className="text-sm font-medium text-gray-500 mb-2">Förhandsgranskning (första 10 rader)</dt>
+                      <dt className="text-sm font-medium text-gray-500 mb-2">
+                        Förhandsgranskning (första 10 rader)
+                      </dt>
                       <dd className="mt-1 text-sm text-gray-900">
                         <ul className="border border-gray-200 rounded-md divide-y divide-gray-200 max-h-60 overflow-y-auto">
-                          {fileContent.lines?.slice(0, 10).map((line, index) => (
-                            <li key={index} className="pl-3 pr-4 py-3 flex items-center justify-between text-sm hover:bg-gray-50">
-                              <span className="font-medium text-gray-900">{index + 1}.</span>
-                              <span className="ml-2 flex-1 w-0 truncate">{line}</span>
-                            </li>
-                          ))}
+                          {fileContent.lines
+                            ?.slice(0, 10)
+                            .map((line, index) => (
+                              <li
+                                key={index}
+                                className="pl-3 pr-4 py-3 flex items-center justify-between text-sm hover:bg-gray-50"
+                              >
+                                <span className="font-medium text-gray-900">
+                                  {index + 1}.
+                                </span>
+                                <span className="ml-2 flex-1 w-0 truncate">
+                                  {line}
+                                </span>
+                              </li>
+                            ))}
                         </ul>
                       </dd>
                     </div>
@@ -311,7 +367,6 @@ export default function UploadPage() {
             exit={{ opacity: 0 }}
           >
             <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-             
               <motion.div
                 className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
                 initial={{ y: -50, opacity: 0 }}
@@ -324,12 +379,16 @@ export default function UploadPage() {
                       <Upload className="h-6 w-6 text-indigo-600" />
                     </div>
                     <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                      <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                      <h3
+                        className="text-lg leading-6 font-medium text-gray-900"
+                        id="modal-title"
+                      >
                         Bekräfta uppladdning
                       </h3>
                       <div className="mt-2">
                         <p className="text-sm text-gray-500">
-                          Är du säker på att du vill ladda upp denna fil? Detta kommer att uppdatera lagret för den valda artikeln.
+                          Är du säker på att du vill ladda upp denna fil? Detta
+                          kommer att uppdatera lagret för den valda artikeln.
                         </p>
                       </div>
                     </div>
@@ -371,7 +430,7 @@ export function ErrorBoundary() {
         <h1>
           {error.status} {error.statusText}
         </h1>
-        <p>{error.data.message || 'Something went wrong'}</p>
+        <p>{error.data.message || "Something went wrong"}</p>
       </div>
     );
   }

@@ -1,9 +1,16 @@
+"use client";
+
 import React, { useState } from "react";
-import { json, LoaderFunction, redirect } from "@remix-run/node";
-import { useLoaderData, Link, useRouteError, isRouteErrorResponse } from "@remix-run/react";
+import { json, type LoaderFunction } from "@remix-run/node";
+import {
+  useLoaderData,
+  Link,
+  useRouteError,
+  isRouteErrorResponse,
+} from "@remix-run/react";
 import { motion } from "framer-motion";
-import { Search, Package, Wifi, Calendar } from 'lucide-react';
-import { getSession } from "~/utils/sessions.server";
+import { Search, Package } from "lucide-react";
+import { requireUserToken } from "~/utils/auth.server";
 import { baseUrl } from "~/constants/api";
 
 interface ProductDetails {
@@ -34,27 +41,26 @@ interface VoucherData {
 
 export const loader: LoaderFunction = async ({ request }) => {
   try {
-    const session = await getSession(request.headers.get("Cookie"));
-    const token = session.get('token');
-    if (!token) {
-      return redirect('/');
-    }
+    const token = await requireUserToken(request);
 
-    const response = await fetch(`${baseUrl}/api/vouchers`, {
+    const response = await fetch(`${baseUrl}/vouchers`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
     if (!response.ok) {
-      throw json({ message: "Failed to fetch vouchers" }, { status: response.status });
+      throw json(
+        { message: "Failed to fetch vouchers" },
+        { status: response.status }
+      );
     }
 
     const data = await response.json();
     return json(data.data);
   } catch (error) {
     console.error("Loader error:", error);
-    throw json({ message: "An error occurred while fetching data" }, { status: 500 });
+    throw error; // Let Remix handle the error
   }
 };
 
@@ -87,31 +93,13 @@ export default function LagerPage() {
     {} as Record<string, VoucherData[]>
   );
 
-  const lowStockFilter = (voucher: VoucherData) => voucher.vouchersRemaining <= 50;
+  const lowStockFilter = (voucher: VoucherData) =>
+    voucher.vouchersRemaining <= 50;
 
   return (
     <React.Fragment>
-      <header className="bg-indigo-700 text-white shadow">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <Link to="/lager" className="text-3xl font-bold">Nedcgroup Lager</Link>
-          <nav className="flex space-x-6">
-            <Link
-              to="/lager"
-              className="text-white hover:text-indigo-300 transition font-medium"
-            >
-              Lager
-            </Link>
-            <Link
-              to="/ladda-upp"
-              className="text-white hover:text-indigo-300 transition font-medium"
-            >
-              Fyll På
-            </Link>
-          </nav>
-        </div>
-      </header>
-      <div className="min-h-screen bg-gray-700">
-        <div className="bg-indigo-700 text-white">
+      <div className="min-h-screen bg-gray-200">
+        <div className=" text-black">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <div className="text-center">
               <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
@@ -129,29 +117,31 @@ export default function LagerPage() {
                     placeholder="Sök produkt..."
                     className="w-full px-6 py-4 rounded-full bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   />
-                  <div className="absolute right-4 top-4 text-gray-400">
+                  <div className="absolute right-4 top-4 text-gray-800">
                     <Search className="h-6 w-6" />
                   </div>
                 </div>
               </div>
               <div className="mt-4">
-                <label className="inline-flex items-center text-white">
+                <label className="inline-flex items-center text-black">
                   <input
                     type="checkbox"
                     checked={showLowStock}
                     onChange={(e) => setShowLowStock(e.target.checked)}
                     className="form-checkbox text-indigo-600"
                   />
-                  <span className="ml-2">Visa endast produkter med lågt lager</span>
+                  <span className="ml-2">
+                    Visa endast produkter med lågt lager
+                  </span>
                 </label>
               </div>
             </div>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto px-4 text-black sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto  text-black sm:px-6 lg:px-8 py-12">
           {Object.entries(filteredGroups).map(([group, groupVouchers]) => (
             <div key={group} className="mb-12">
-              <h2 className="text-2xl font-bold text-white mb-6">{group}</h2>
+              <h2 className="text-2xl font-bold text-black mb-6">{group}</h2>
               <div className="flex flex-wrap -mx-4">
                 {groupVouchers
                   .filter((voucher) => !showLowStock || lowStockFilter(voucher))
@@ -188,15 +178,15 @@ export default function LagerPage() {
                                   </p>
                                   <p
                                     className={`text-lg font-bold ${
-                                      isLowStock ? "text-red-600" : "text-indigo-600"
+                                      isLowStock
+                                        ? "text-red-600"
+                                        : "text-indigo-600"
                                     }`}
                                   >
                                     {voucher.vouchersRemaining} st
                                   </p>
                                 </div>
                               </div>
-                              
-                              
                             </div>
                             {isLowStock && (
                               <div className="mt-4 text-center text-sm text-red-600">
@@ -214,7 +204,9 @@ export default function LagerPage() {
                                   </p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-gray-700 font-medium">EAN</p>
+                                  <p className="text-gray-700 font-medium">
+                                    EAN
+                                  </p>
                                   <p className="font-semibold text-black">
                                     {voucher.productDetails.ean}
                                   </p>
@@ -244,7 +236,7 @@ export function ErrorBoundary() {
         <h1>
           {error.status} {error.statusText}
         </h1>
-        <p>{error.data.message || 'Something went wrong'}</p>
+        <p>{error.data.message || "Something went wrong"}</p>
       </div>
     );
   }

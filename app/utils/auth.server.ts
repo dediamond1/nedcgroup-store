@@ -1,64 +1,95 @@
+import { createCookieSessionStorage, redirect } from "@remix-run/node"
+import { baseUrl, endpoints } from "~/constants/api"
+import { create } from "apisauce"
 
-import { create } from "apisauce";
-import { redirect } from "@remix-run/node";
-
-// Define the type of response for the login and register API calls
-interface AuthResponse {
-  token: string;
-  message?: string;
+const sessionSecret: string | undefined = process.env.SESSION_SECRET
+if (!sessionSecret) {
+  throw new Error("SESSION_SECRET must be set")
 }
 
-// Your API base URL
-const API_URL = "https://artinsgruppen2-a22da2d8d991.herokuapp.com/api"; // Replace with your actual API base URL
+const storage = createCookieSessionStorage({
+  cookie: {
+    name: "RJ_session",
+    secure: process.env.NODE_ENV === "production",
+    secrets: [sessionSecret],
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+    httpOnly: true,
+  },
+})
 
-// Create an Apisauce instance
-const api = create({
-  baseURL: API_URL,
+const apiClient = create({
+  baseURL: baseUrl,
   headers: { "Content-Type": "application/json" },
-});
+  timeout: 10000,
+})
 
-// Helper to set the token in a secure, HTTP-only cookie
-function createSession(token: string) {
-  return `token=${token}; HttpOnly; Secure; Path=/; Max-Age=${60 * 60 * 24}`;
+export async function createUserSession(token: string, redirectTo: string) {
+  const session = await storage.getSession()
+  session.set("token", token)
+  return redirect(redirectTo, {
+    headers: {
+      "Set-Cookie": await storage.commitSession(session),
+    },
+  })
 }
 
-// Improved error handling for API requests
-function handleApiError(response: any) {
-  if (!response.ok) {
-    const errorMessage = response.data?.message || "Something went wrong";
-    throw new Error(errorMessage);
-  }
-  return response.data;
+export async function getUserToken(request: Request): Promise<string | null> {
+  const session = await storage.getSession(request.headers.get("Cookie"))
+  const token = session.get("token")
+  if (!token || typeof token !== "string") return null
+  return token
 }
 
-// Login user with your external API using Apisauce
-export async function loginUser(email: string, password: string): Promise<string> {
-  const response = await api.post("/admin/login", { email, password });
-  console.log(response)
-
-  const data = handleApiError(response); // Handle potential errors
-
-  return data.token; // Return the token if successful
-}
-
-// Register user with your external API using Apisauce
-export async function registerUser(email: string, password: string): Promise<string> {
-  const response = await api.post("/api/auth/register", { email, password });
-
-  const data = handleApiError(response); // Handle potential errors
-
-  return data.token; // Return the token if successful
-}
-
-// Middleware to verify the session (JWT token) from cookies
-export async function requireAuth(request: Request): Promise<string> {
-  const cookieHeader = request.headers.get("Cookie");
-  const token = cookieHeader?.match(/token=([^;]+)/)?.[1];
-
+export async function requireUserToken(request: Request, redirectTo = "/login"): Promise<string> {
+  const token = await getUserToken(request)
   if (!token) {
-    throw redirect("/");
+    throw redirect(redirectTo)
+  }
+  return token
+}
+
+export async function logout(request: Request) {
+  const session = await storage.getSession(request.headers.get("Cookie"))
+  return redirect("/login", {
+    headers: {
+      "Set-Cookie": await storage.destroySession(session),
+    },
+  })
+}
+
+export async function login(email: string, password: string): Promise<string> {
+  const response = await apiClient.post<{ message: string; token?: string }>(endpoints.login, { email, password })
+  if (!response.ok || !response.data) {
+    throw new Error(response.data?.message || "Login failed")
   }
 
-  // Optionally verify the token with the API or decode it here if needed
-  return token; // This would typically return the decoded user info or the token itself
+  if (response.data.message.toLowerCase() !== "login successful.") {
+    throw new Error(response.data.message)
+  }
+
+  if (!response.data.token) {
+    throw new Error("No token received from server")
+  }
+
+  return response.data.token
 }
+
+export async function isUserLoggedIn(request: Request): Promise<boolean> {
+  const token = await getUserToken(request)
+  return !!token
+}
+
+export async function getUser(request: Request): Promise<any | null> {
+  const token = await getUserToken(request)
+  if (!token) return null
+
+  const response = await apiClient.get<any>(endpoints.adminUser, {}, { headers: { Authorization: `Bearer ${token}` } })
+  if (!response.ok) {
+    console.error("Error fetching user data:", response.problem)
+    return null
+  }
+  return response.data
+}
+

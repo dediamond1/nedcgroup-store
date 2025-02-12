@@ -1,13 +1,18 @@
+import type { LinksFunction, LoaderFunction } from "@remix-run/node";
 import {
   Links,
+  LiveReload,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "@remix-run/react";
-import type { LinksFunction } from "@remix-run/node";
+import { json } from "@remix-run/node";
 
 import "./tailwind.css";
+import { getUserToken } from "./utils/auth.server";
+import Layout from "./components/Layout";
 
 export const links: LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -22,24 +27,28 @@ export const links: LinksFunction = () => [
   },
 ];
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export const loader: LoaderFunction = async ({ request }) => {
+  return json({
+    user: await getUserToken(request),
+  });
+};
+
+export default function App() {
+  const { user } = useLoaderData<typeof loader>();
+
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
+        <title>Admin | Nedcgroup</title>
         <Links />
       </head>
-      <body>
-        {children}
+      <body className="h-full">
+        {user ? <Layout /> : <Outlet />}
         <ScrollRestoration />
         <Scripts />
+        <LiveReload />
       </body>
     </html>
   );
-}
-
-export default function App() {
-  return <Outlet />;
 }
