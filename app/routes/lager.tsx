@@ -98,7 +98,7 @@ export default function LagerPage() {
 
   return (
     <React.Fragment>
-      <div className="min-h-screen bg-gray-200">
+      <div className="min-h-screen bg-gray-100">
         <div className=" text-black">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <div className="text-center">
@@ -138,7 +138,7 @@ export default function LagerPage() {
             </div>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto  text-black sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto px-4 text-black sm:px-6 lg:px-8 py-12">
           {Object.entries(filteredGroups).map(([group, groupVouchers]) => (
             <div key={group} className="mb-12">
               <h2 className="text-2xl font-bold text-black mb-6">{group}</h2>

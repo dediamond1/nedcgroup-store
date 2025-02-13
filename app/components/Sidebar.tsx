@@ -2,11 +2,10 @@
 
 import type React from "react";
 import { useState, useRef, useEffect } from "react";
-import { Link, redirect, useLocation, useNavigate } from "@remix-run/react";
+import { Link, useLocation, useNavigate } from "@remix-run/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
-  Users2,
   FileText,
   Package,
   Upload,
@@ -31,26 +30,19 @@ interface SettingsItem {
 }
 
 const navLinks: NavLink[] = [
-  { to: "/companies", label: "Companies", icon: <Building2 size={20} /> },
-  { to: "/accounts", label: "Accounts", icon: <Users2 size={20} /> },
-  { to: "/invoices", label: "Invoices", icon: <FileText size={20} /> },
-  { to: "/lager", label: "Inventory", icon: <Package size={20} /> },
-  { to: "/ladda-upp", label: "Upload", icon: <Upload size={20} /> },
+  { to: "/companies", label: "Hantera Företag", icon: <Building2 size={20} /> },
+  { to: "/lager", label: "Lager", icon: <Package size={20} /> },
+  { to: "/ladda-upp", label: "Ladda upp", icon: <Upload size={20} /> },
+  { to: "/the-rest", label: "Övriga tjänster", icon: <FileText size={20} /> },
 ];
 
 interface SidebarProps {
-  isMobile: boolean;
   isOpen: boolean;
   onClose: () => void;
   onToggle: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({
-  isMobile,
-  isOpen,
-  onClose,
-  onToggle,
-}) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onToggle }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -109,10 +101,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </AnimatePresence>
         <button
-          onClick={isMobile ? onClose : onToggle}
-          className="p-1 rounded-md text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300"
+          onClick={onToggle}
+          className="p-1 rounded-md text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 md:block"
         >
-          {isMobile ? <X size={24} /> : <Menu size={24} />}
+          {isOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
       <nav className="flex-1 overflow-y-auto py-4">
@@ -125,7 +117,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 ? "text-blue-600 bg-blue-50"
                 : "text-gray-600 hover:bg-gray-100"
             }`}
-            onClick={isMobile ? onClose : undefined}
           >
             {link.icon}
             <AnimatePresence>
@@ -194,7 +185,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     onClick={() => {
                       item.action();
                       setIsSettingsOpen(false);
-                      if (isMobile) onClose();
                     }}
                     className="flex items-center w-full px-4 py-3 text-sm text-left text-gray-700 hover:bg-gray-100 transition-colors duration-200"
                   >
@@ -210,42 +200,28 @@ const Sidebar: React.FC<SidebarProps> = ({
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <>
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="fixed inset-0 bg-black bg-opacity-50 z-40"
-              onClick={onClose}
-            />
-          )}
-        </AnimatePresence>
-        <motion.div
-          className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg"
-          initial={{ x: "-100%" }}
-          animate={{ x: isOpen ? 0 : "-100%" }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        >
-          {sidebarContent}
-        </motion.div>
-      </>
-    );
-  }
-
   return (
-    <motion.div
-      className="flex bg-white border-r border-gray-200 shadow-sm"
-      initial={false}
-      animate={{ width: isOpen ? "240px" : "72px" }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
-    >
-      {sidebarContent}
-    </motion.div>
+    <>
+      {/* Mobile overlay */}
+      <div
+        className={`fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden ${
+          isOpen ? "block" : "hidden"
+        }`}
+        onClick={onClose}
+      ></div>
+
+      {/* Sidebar */}
+      <motion.div
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-white shadow-lg md:shadow-none transition-transform md:transition-none ${
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+        initial={false}
+        animate={{ width: isOpen ? "256px" : "72px" }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+      >
+        {sidebarContent}
+      </motion.div>
+    </>
   );
 };
 

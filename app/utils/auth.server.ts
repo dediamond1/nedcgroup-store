@@ -52,7 +52,7 @@ export async function requireUserToken(request: Request, redirectTo = "/login"):
 
 export async function logout(request: Request) {
   const session = await storage.getSession(request.headers.get("Cookie"))
-  return redirect("/login", {
+  return redirect("/", {
     headers: {
       "Set-Cookie": await storage.destroySession(session),
     },
@@ -65,9 +65,6 @@ export async function login(email: string, password: string): Promise<string> {
     throw new Error(response.data?.message || "Login failed")
   }
 
-  if (response.data.message.toLowerCase() !== "login successful.") {
-    throw new Error(response.data.message)
-  }
 
   if (!response.data.token) {
     throw new Error("No token received from server")
@@ -90,6 +87,8 @@ export async function getUser(request: Request): Promise<any | null> {
     console.error("Error fetching user data:", response.problem)
     return null
   }
-  return response.data
+
+  console.log(response.data)
+  return response.data?.user
 }
 

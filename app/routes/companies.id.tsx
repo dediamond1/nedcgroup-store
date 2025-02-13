@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useLoaderData, useNavigate, useParams } from "@remix-run/react";
+import { useState, useEffect, useRef } from "react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import { json, type LoaderFunction } from "@remix-run/node";
 import { motion } from "framer-motion";
 import {
@@ -25,6 +25,7 @@ import {
   MoreVertical,
   Trash,
   Loader,
+  DollarSign,
 } from "lucide-react";
 import { requireUserToken } from "~/utils/auth.server";
 import { baseUrl } from "~/constants/api";
@@ -62,9 +63,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { toast } from "react-hot-toast";
-import type { LycaOrder, ComviqOrder } from "~/types/orders";
-import { Toaster } from "react-hot-toast";
+import { toast, Toaster } from "react-hot-toast";
+import { ConfirmationModal } from "~/components/ui/ConfirmationModal";
 
 interface Company {
   _id: string;
@@ -91,6 +91,26 @@ interface SalesData {
   previousAmount: number;
 }
 
+interface PaymentHistory {
+  _id: string;
+  companyId: string;
+  EnteredBy: string;
+  PaidAmount: string;
+  PaidDate: string;
+  id: string;
+}
+
+interface Order {
+  _id: string;
+  voucherNumber: string;
+  voucherDescription: string;
+  voucherAmount: number;
+  voucherCurrency: string;
+  OrderDate: string;
+  expireDate: string;
+  serialNumber: string;
+}
+
 type OrderType = "comviq" | "lyca";
 
 export const loader: LoaderFunction = async ({ params, request }) => {
@@ -112,24 +132,12 @@ export const loader: LoaderFunction = async ({ params, request }) => {
     }
   );
 
-  if (!comviqOrdersResponse.ok) {
-    throw new Error("Failed to fetch Comviq orders");
-  }
-
-  const comviqOrders = await comviqOrdersResponse.json();
-
   const lycaOrdersResponse = await fetch(
     `${baseUrl}/lyca-order/detail/${company.company._id}`,
     {
       headers: { Authorization: `Bearer ${token}` },
     }
   );
-
-  if (!lycaOrdersResponse.ok) {
-    throw new Error("Failed to fetch Lyca orders");
-  }
-
-  const lycaOrders = await lycaOrdersResponse.json();
 
   const salesResponse = await fetch(
     `${baseUrl}/order/dailysale/${company.company._id}?includePrevious=true`,
@@ -138,30 +146,49 @@ export const loader: LoaderFunction = async ({ params, request }) => {
     }
   );
 
-  if (!salesResponse.ok) {
-    throw new Error("Failed to fetch sales data");
-  }
+  const paymentHistoryResponse = await fetch(
+    `${baseUrl}/paidhistory/${company.company._id}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
 
-  const salesData = await salesResponse.json();
+  const [comviqOrders, lycaOrders, salesData, paymentHistory] =
+    await Promise.all([
+      comviqOrdersResponse.ok ? comviqOrdersResponse.json() : { orderlist: [] },
+      lycaOrdersResponse.ok ? lycaOrdersResponse.json() : { orderlist: [] },
+      salesResponse.ok ? salesResponse.json() : { companySelling: [] },
+      paymentHistoryResponse.ok
+        ? paymentHistoryResponse.json()
+        : { orderHistoryList: [] },
+    ]);
 
   return json({
     company: company.company,
     comviqOrders: comviqOrders.orderlist,
     lycaOrders: lycaOrders.orderlist,
     salesData: salesData.companySelling,
+    paymentHistory: paymentHistory.orderHistoryList || [],
     token,
   });
 };
 
 export default function CompanyDetails() {
-  const { company, comviqOrders, lycaOrders, salesData, token } =
-    useLoaderData<{
-      company: Company;
-      comviqOrders: ComviqOrder[];
-      lycaOrders: LycaOrder[];
-      salesData: SalesData[];
-      token: string;
-    }>();
+  const {
+    company,
+    comviqOrders,
+    lycaOrders,
+    salesData,
+    paymentHistory,
+    token,
+  } = useLoaderData<{
+    company: Company;
+    comviqOrders: Order[];
+    lycaOrders: Order[];
+    salesData: SalesData[];
+    paymentHistory: PaymentHistory[];
+    token: string;
+  }>();
   const navigate = useNavigate();
   const [isActive, setIsActive] = useState<boolean>(company.IsActive);
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -171,15 +198,24 @@ export default function CompanyDetails() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [orderType, setOrderType] = useState<OrderType>("comviq");
-  const [filteredOrders, setFilteredOrders] = useState<
-    (ComviqOrder | LycaOrder)[]
-  >([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [invoiceStartDate, setInvoiceStartDate] = useState<Date | null>(null);
   const [invoiceEndDate, setInvoiceEndDate] = useState<Date | null>(null);
-  const ordersPerPage = 10;
-  const { id } = useParams();
-  const [isMobile, setIsMobile] = useState(false);
+  const [newPaymentAmount, setNewPaymentAmount] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isDeletePaymentModalOpen, setIsDeletePaymentModalOpen] =
+    useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
+  const [isDeleteOrderModalOpen, setIsDeleteOrderModalOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+  const [adminInfo, setAdminInfo] = useState<{
+    [key: string]: { name: string; email: string };
+  }>({});
+  const [paymentHistoryState, setPaymentHistoryState] =
+    useState<PaymentHistory[]>(paymentHistory);
+  const hasInitialFetchRef = useRef(false);
+  const ordersPerPage = 10;
 
   useEffect(() => {
     const orders = orderType === "comviq" ? comviqOrders : lycaOrders;
@@ -215,6 +251,37 @@ export default function CompanyDetails() {
     window.addEventListener("resize", checkIsMobile);
     return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
+
+  useEffect(() => {
+    paymentHistoryState.forEach((payment) => {
+      if (payment.EnteredBy && !adminInfo[payment.EnteredBy]) {
+        fetchAdminInfo(payment.EnteredBy);
+      }
+    });
+  }, [paymentHistoryState, adminInfo]);
+
+  useEffect(() => {
+    const fetchPaymentHistory = async () => {
+      if (hasInitialFetchRef.current) return;
+      hasInitialFetchRef.current = true;
+
+      const updatedHistoryResponse = await fetch(
+        `${baseUrl}/paidhistory/${company._id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (updatedHistoryResponse.ok) {
+        const updatedHistory = await updatedHistoryResponse.json();
+        if (updatedHistory.message === "No Paid History Data Found") {
+          setPaymentHistoryState([]);
+        } else {
+          setPaymentHistoryState(updatedHistory.orderHistoryList || []);
+        }
+      }
+    };
+    fetchPaymentHistory();
+  }, [company._id, token]);
 
   const indexOfLastOrder = currentPage * ordersPerPage;
   const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
@@ -274,6 +341,7 @@ export default function CompanyDetails() {
     }
 
     setIsLoading(true);
+    toast.loading("Generating invoice...");
 
     try {
       const response = await fetch(
@@ -313,7 +381,7 @@ export default function CompanyDetails() {
 
     try {
       const response = await fetch(
-        `${baseUrl}/order/delete/${company._id}/${orderId}`,
+        `${baseUrl}/order/delete/${orderId}/${company._id}`,
         {
           method: "GET",
           headers: {
@@ -325,10 +393,17 @@ export default function CompanyDetails() {
       if (response.ok) {
         toast.dismiss();
         toast.success("Order deleted successfully");
-        // Remove the deleted order from the state
-        setFilteredOrders((prevOrders) =>
-          prevOrders.filter((order) => order._id !== orderId)
+        // Refetch orders
+        const updatedOrdersResponse = await fetch(
+          `${baseUrl}/order/detail/${company._id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
         );
+        if (updatedOrdersResponse.ok) {
+          const updatedOrders = await updatedOrdersResponse.json();
+          setFilteredOrders(updatedOrders.orderlist || []);
+        }
       } else {
         toast.dismiss();
         toast.error("Failed to delete order");
@@ -338,6 +413,115 @@ export default function CompanyDetails() {
       toast.error("An error occurred while deleting the order");
     } finally {
       setIsLoading(false);
+      setIsDeleteOrderModalOpen(false);
+      setOrderToDelete(null);
+    }
+  };
+
+  const handleAddPayment = async () => {
+    if (!newPaymentAmount) {
+      toast.error("Please enter a payment amount");
+      return;
+    }
+
+    setIsLoading(true);
+    toast.loading("Adding payment...");
+
+    try {
+      const response = await fetch(`${baseUrl}/paidhistory/${company._id}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: "",
+          PaidAmount: newPaymentAmount,
+        }),
+      });
+
+      if (response.ok) {
+        toast.dismiss();
+        toast.success("Payment added successfully");
+        setNewPaymentAmount("");
+        // Refetch payment history
+        const updatedHistoryResponse = await fetch(
+          `${baseUrl}/paidhistory/${company._id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (updatedHistoryResponse.ok) {
+          const updatedHistory = await updatedHistoryResponse.json();
+          if (updatedHistory.message === "No Paid History Data Found") {
+            setPaymentHistoryState([]);
+          } else {
+            setPaymentHistoryState(updatedHistory.orderHistoryList || []);
+          }
+        }
+      } else {
+        toast.dismiss();
+        toast.error("Failed to add payment");
+      }
+    } catch (error) {
+      toast.dismiss();
+      toast.error("An error occurred while adding the payment");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeletePaymentHistory = async (paymentId: string) => {
+    setIsLoading(true);
+    toast.loading("Deleting payment history...");
+
+    try {
+      const response = await fetch(`${baseUrl}/paidhistory/${paymentId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        toast.dismiss();
+        toast.success("Payment history deleted successfully");
+        // Remove the deleted payment from the state
+        setPaymentHistoryState((prevState) => {
+          const updatedState = prevState.filter(
+            (payment) => payment._id !== paymentId
+          );
+          // If this was the last payment, set the state to an empty array
+          return updatedState.length === 0 ? [] : updatedState;
+        });
+      } else {
+        toast.dismiss();
+        toast.error("Failed to delete payment history");
+      }
+    } catch (error) {
+      toast.dismiss();
+      toast.error("An error occurred while deleting the payment history");
+    } finally {
+      setIsLoading(false);
+      setIsDeletePaymentModalOpen(false);
+      setPaymentToDelete(null);
+    }
+  };
+
+  const fetchAdminInfo = async (adminId: string) => {
+    try {
+      const response = await fetch(`${baseUrl}/admin/${adminId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const adminData = await response.json();
+        setAdminInfo((prevInfo) => ({
+          ...prevInfo,
+          [adminId]: { name: adminData.name, email: adminData.email },
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching admin info:", error);
     }
   };
 
@@ -511,9 +695,9 @@ export default function CompanyDetails() {
 
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle>Orders and Invoices</CardTitle>
+            <CardTitle>Orders, Invoices, and Payments</CardTitle>
             <CardDescription>
-              Manage orders and generate invoices
+              Manage orders, generate invoices, and view payment history
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -521,6 +705,7 @@ export default function CompanyDetails() {
               <TabsList>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
                 <TabsTrigger value="invoices">Generate Invoice</TabsTrigger>
+                <TabsTrigger value="payments">Payment History</TabsTrigger>
               </TabsList>
               <TabsContent value="orders">
                 <div className="space-y-4">
@@ -582,7 +767,11 @@ export default function CompanyDetails() {
                       className="pl-8"
                     />
                   </div>
-                  {isMobile ? (
+                  {filteredOrders.length === 0 ? (
+                    <p className="text-center text-gray-500">
+                      No orders found for the selected criteria.
+                    </p>
+                  ) : isMobile ? (
                     <div className="space-y-4">
                       {currentOrders.map((order) => (
                         <Card key={order._id}>
@@ -608,7 +797,10 @@ export default function CompanyDetails() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem
-                                    onClick={() => handleDeleteOrder(order._id)}
+                                    onClick={() => {
+                                      setOrderToDelete(order._id);
+                                      setIsDeleteOrderModalOpen(true);
+                                    }}
                                   >
                                     <Trash className="mr-2 h-4 w-4" />
                                     <span>Delete</span>
@@ -678,7 +870,10 @@ export default function CompanyDetails() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem
-                                    onClick={() => handleDeleteOrder(order._id)}
+                                    onClick={() => {
+                                      setOrderToDelete(order._id);
+                                      setIsDeleteOrderModalOpen(true);
+                                    }}
                                   >
                                     <Trash className="mr-2 h-4 w-4" />
                                     <span>Delete</span>
@@ -691,25 +886,27 @@ export default function CompanyDetails() {
                       </TableBody>
                     </Table>
                   )}
-                  <div className="flex items-center justify-between">
-                    <Button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-2" />
-                      Previous
-                    </Button>
-                    <span>
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </div>
+                  {filteredOrders.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <Button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-2" />
+                        Previous
+                      </Button>
+                      <span>
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <Button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
               <TabsContent value="invoices">
@@ -757,6 +954,86 @@ export default function CompanyDetails() {
                   </Button>
                 </div>
               </TabsContent>
+              <TabsContent value="payments">
+                <div className="space-y-4">
+                  <div className="flex space-x-4">
+                    <div className="w-3/4">
+                      <Label htmlFor="newPaymentAmount">Payment Amount</Label>
+                      <Input
+                        id="newPaymentAmount"
+                        type="number"
+                        value={newPaymentAmount}
+                        onChange={(e) => setNewPaymentAmount(e.target.value)}
+                        placeholder="Enter payment amount"
+                      />
+                    </div>
+                    <div className="w-1/4 flex items-end">
+                      <Button
+                        onClick={handleAddPayment}
+                        className="w-full"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader className="mr-2 h-4 w-4 animate-spin" />
+                            Adding...
+                          </>
+                        ) : (
+                          <>
+                            <DollarSign className="mr-2 h-4 w-4" />
+                            Add Payment
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  {paymentHistoryState.length === 0 ? (
+                    <p className="text-center text-gray-500">
+                      No payment history found.
+                    </p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Entered By</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paymentHistoryState.map((payment) => (
+                          <TableRow key={payment._id}>
+                            <TableCell>
+                              {new Date(payment.PaidDate).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>{payment.PaidAmount}</TableCell>
+                            <TableCell>
+                              {adminInfo[payment.EnteredBy]
+                                ? `${adminInfo[payment.EnteredBy].name} (${
+                                    adminInfo[payment.EnteredBy].email
+                                  })`
+                                : payment.EnteredBy}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setPaymentToDelete(payment._id);
+                                  setIsDeletePaymentModalOpen(true);
+                                }}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
@@ -770,6 +1047,32 @@ export default function CompanyDetails() {
           </div>
         </div>
       )}
+      <ConfirmationModal
+        isOpen={isDeletePaymentModalOpen}
+        onClose={() => setIsDeletePaymentModalOpen(false)}
+        onConfirm={() => {
+          if (paymentToDelete) {
+            handleDeletePaymentHistory(paymentToDelete);
+          }
+        }}
+        title="Confirm Delete Payment"
+        message="Are you sure you want to delete this payment history?"
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+      <ConfirmationModal
+        isOpen={isDeleteOrderModalOpen}
+        onClose={() => setIsDeleteOrderModalOpen(false)}
+        onConfirm={() => {
+          if (orderToDelete) {
+            handleDeleteOrder(orderToDelete);
+          }
+        }}
+        title="Confirm Delete Order"
+        message="Are you sure you want to delete this order?"
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }
