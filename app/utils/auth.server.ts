@@ -2,7 +2,7 @@ import { createCookieSessionStorage, redirect } from "@remix-run/node"
 import { baseUrl, endpoints } from "~/constants/api"
 import { create } from "apisauce"
 
-const sessionSecret: string | undefined = process.env.SESSION_SECRET
+const sessionSecret: string | undefined = process.env.SESSION_SECRET ? process.env.SESSION_SECRET : "aksjcnajscnjkacnjkacsnjkn"
 if (!sessionSecret) {
   throw new Error("SESSION_SECRET must be set")
 }

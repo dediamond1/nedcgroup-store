@@ -21,6 +21,7 @@ EXPOSE 3005
 
 # Set environment variable
 ENV NODE_ENV production
+ENV SESSION_SECRET aksjcnajscnjkacnjkacsnjkn
 
 # Start the app
 CMD ["npm", "start"]
