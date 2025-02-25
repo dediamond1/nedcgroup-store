@@ -103,7 +103,7 @@ export function CompanyCard({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem asChild className="h-10">
-                  <Link to={`/companies/${company._id}`}>
+                  <Link to={`/company/${company._id}`}>
                     <ExternalLink className="mr-2 h-5 w-5" />
                     <span>Manage Company</span>
                   </Link>

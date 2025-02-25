@@ -86,7 +86,7 @@ export function RegistrationTrends({ trends }: RegistrationTrendsProps) {
                   Total Registrations
                 </p>
                 <p className="text-2xl font-bold">
-                  {trends.reduce((sum, trend) => sum + trend.count, 0)}
+                  {trends?.reduce((sum, trend) => sum + trend.count, 0)}
                 </p>
               </div>
               <div className="flex-1 space-y-1">
@@ -95,10 +95,10 @@ export function RegistrationTrends({ trends }: RegistrationTrendsProps) {
                 </p>
                 <p className="text-2xl font-bold">
                   {(
-                    trends.reduce(
+                    trends?.reduce(
                       (sum, trend) => sum + trend.percentageChange,
                       0
-                    ) / trends.length
+                    ) / trends?.length
                   ).toFixed(2)}
                   %
                 </p>
@@ -111,7 +111,7 @@ export function RegistrationTrends({ trends }: RegistrationTrendsProps) {
                 </p>
                 <p className="text-2xl font-bold">
                   {
-                    trends.reduce((max, trend) =>
+                    trends?.reduce((max, trend) =>
                       trend.count > max.count ? trend : max
                     ).month
                   }
@@ -122,7 +122,7 @@ export function RegistrationTrends({ trends }: RegistrationTrendsProps) {
                   Peak Registrations
                 </p>
                 <p className="text-2xl font-bold">
-                  {Math.max(...trends.map((trend) => trend.count))}
+                  {Math.max(...trends?.map((trend) => trend.count))}
                 </p>
               </div>
             </div>

@@ -12,8 +12,10 @@ import {
 
 interface DatePickerProps {
   selected: Date | undefined | any;
-  onChange: (date: Date | undefined) => void;
+  onChange: (date: Date | undefined) => void | any;
   placeholderText?: string;
+  id?: string;
+  className?: string;
 }
 
 export function DatePicker({ selected, onChange }: DatePickerProps) {

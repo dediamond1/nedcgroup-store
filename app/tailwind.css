@@ -1,11 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  font-family: "Atkinson Hyperlegible Next", serif;
+@font-face {
+  font-family: 'Panton';
+  src: url('../fonts/poppins.medium.ttf') format('truetype'),
+       url('../assets/fonts/Panton-Trial-SemiBold.ttf') format('truetype'),
+       url('../assets/fonts/Panton-Trial-Bold.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
 }
+
+* {
+  font-family: 'Panton', 'Atkinson Hyperlegible Next', serif;
+}
+
 
 @layer base {
   :root {

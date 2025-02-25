@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
+import {
+  isRouteErrorResponse,
+  Link,
+  useLoaderData,
+  useNavigate,
+  useRouteError,
+  useSearchParams,
+} from "@remix-run/react";
 import { json, type LoaderFunction } from "@remix-run/node";
 import { create } from "apisauce";
 import { toast, Toaster } from "react-hot-toast";
@@ -16,6 +23,14 @@ import { Pagination } from "~/components/companies/Pagination";
 import { CompanyModal } from "~/components/companies/CompanyModal";
 import Spinner from "~/components/ui/Spinner";
 import { ConfirmationModal } from "~/components/ui/ConfirmationModal";
+import {
+  AlertCircle,
+  ArrowLeft,
+  MessageCircle,
+  Phone,
+  RefreshCw,
+  XCircle,
+} from "lucide-react";
 
 // API setup
 const api = create({
@@ -67,13 +82,14 @@ const decodeText = (text: string): string => {
 const calculateRegistrationTrends = (
   companies: Company[]
 ): RegistrationTrend[] => {
-  // ... (keep the existing implementation)
   const trends: RegistrationTrend[] = [];
-  const companiesByMonth = companies.reduce((acc, company) => {
-    const month = company.registredDate.slice(0, 7);
-    acc[month] = (acc[month] || 0) + 1;
-    return acc;
-  }, {} as { [key: string]: number });
+  const companiesByMonth =
+    companies?.length > 0 &&
+    (companies?.reduce((acc, company) => {
+      const month = company.registredDate.slice(0, 7);
+      acc[month] = (acc[month] || 0) + 1;
+      return acc;
+    }, {} as { [key: string]: number }) as any);
 
   const sortedMonths = Object.keys(companiesByMonth).sort();
 
@@ -100,38 +116,51 @@ export const loader: LoaderFunction = async ({ request }) => {
   const isActive = url.searchParams.get("isActive");
   const page = Number.parseInt(url.searchParams.get("page") || "1", 10);
 
-  const response = (await api.get(
-    "/company",
-    {
-      search: searchTerm,
-      isActive: isActive,
-      page: page,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Accept-Charset": "UTF-8",
+  let companies;
+  try {
+    const response = (await api.get(
+      "/company",
+      {
+        search: searchTerm,
+        isActive: isActive,
+        page: page,
       },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Accept-Charset": "UTF-8",
+        },
+      }
+    )) as any;
+
+    if (!response.ok) {
+      return (companies = []);
     }
-  )) as any;
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch companies");
+    companies =
+      response?.data?.companylist &&
+      response?.data?.companylist.map((company: Company) => ({
+        ...company,
+        name: decodeText(company.name),
+        address: {
+          ...company.address,
+          city: decodeText(company.address.city),
+          postNumber: decodeText(company.address.postNumber),
+        },
+      }));
+    const registrationTrends = calculateRegistrationTrends(companies);
+    const totalCompanies = response.data.totalCompanies || companies.length;
+
+    return json({ companies, registrationTrends, token, totalCompanies });
+  } catch (error) {
+    console.error("Error fetching companies:", error);
+    return json({
+      companies: [],
+      registrationTrends: [],
+      token,
+      totalCompanies: 0,
+    });
   }
-
-  const companies = response.data.companylist.map((company: Company) => ({
-    ...company,
-    name: decodeText(company.name),
-    address: {
-      ...company.address,
-      city: decodeText(company.address.city),
-      postNumber: decodeText(company.address.postNumber),
-    },
-  }));
-  const registrationTrends = calculateRegistrationTrends(companies);
-  const totalCompanies = response.data.totalCompanies || companies.length;
-
-  return json({ companies, registrationTrends, token, totalCompanies });
 };
 
 export default function Companies() {
@@ -183,7 +212,7 @@ export default function Companies() {
       setCurrentPage(1);
       filterCompanies(value, isActive);
     }, 300),
-    [isActive]
+    []
   );
 
   const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,6 +291,7 @@ export default function Companies() {
         toast.error("Failed to delete company");
       }
     } catch (error) {
+      console.error("Error deleting company:", error);
       toast.error("An error occurred while deleting the company");
     } finally {
       setIsLoading(false);
@@ -284,6 +314,7 @@ export default function Companies() {
         toast.error("Failed to reset password");
       }
     } catch (error) {
+      console.error("Error resetting password:", error);
       toast.error("An error occurred while resetting the password");
     } finally {
       setIsLoading(false);
@@ -304,6 +335,7 @@ export default function Companies() {
         toast.error("Failed to reset PIN");
       }
     } catch (error) {
+      console.error("Error resetting PIN:", error);
       toast.error("An error occurred while resetting the PIN");
     } finally {
       setIsLoading(false);
@@ -315,9 +347,9 @@ export default function Companies() {
       setIsLoading(true);
       let response;
       if (modalMode === "create") {
-        response = (await api.post("/company", companyData, {
+        response = await api.post("/company", companyData, {
           headers: { Authorization: `Bearer ${token}` },
-        })) as any;
+        });
       } else {
         response = await api.put("/company", companyData, {
           headers: { Authorization: `Bearer ${token}` },
@@ -332,10 +364,13 @@ export default function Companies() {
         );
         setIsModalOpen(false);
         if (modalMode === "create") {
-          setCompanies((prevCompanies) => [...prevCompanies, response.data]);
+          setCompanies((prevCompanies: any) => [
+            ...prevCompanies,
+            response.data,
+          ]);
         } else {
           setCompanies((prevCompanies) =>
-            prevCompanies.map((company) =>
+            prevCompanies?.map((company) =>
               company._id === companyData._id ? companyData : company
             )
           );
@@ -345,6 +380,10 @@ export default function Companies() {
         toast.error(`Failed to ${modalMode} company`);
       }
     } catch (error) {
+      console.error(
+        `Error ${modalMode === "create" ? "creating" : "updating"} company:`,
+        error
+      );
       toast.error(
         `An error occurred while ${
           modalMode === "create" ? "creating" : "updating"
@@ -368,7 +407,7 @@ export default function Companies() {
       if (response.ok) {
         toast.success("Company status updated successfully");
         setCompanies((prevCompanies) =>
-          prevCompanies.map((company) =>
+          prevCompanies?.map((company) =>
             company._id === id ? { ...company, IsActive: newStatus } : company
           )
         );
@@ -377,6 +416,7 @@ export default function Companies() {
         toast.error("Failed to update company status");
       }
     } catch (error) {
+      console.error("Error updating company status:", error);
       toast.error("An error occurred while updating the company status");
     } finally {
       setIsLoading(false);
@@ -409,11 +449,11 @@ export default function Companies() {
 
   const indexOfLastCompany = currentPage * companiesPerPage;
   const indexOfFirstCompany = indexOfLastCompany - companiesPerPage;
-  const currentCompanies = filteredCompanies.slice(
+  const currentCompanies = filteredCompanies?.slice(
     indexOfFirstCompany,
     indexOfLastCompany
   );
-  const totalPages = Math.ceil(filteredCompanies.length / companiesPerPage);
+  const totalPages = Math.ceil(filteredCompanies?.length / companiesPerPage);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -423,10 +463,10 @@ export default function Companies() {
           <Spinner />
         </div>
       )}
-      <div className="container mx-auto px-4 py-8">
+      <div className="md:container mx-auto px-4 py-8">
         <RegistrationTrends trends={registrationTrends} />
         <HeroSection
-          companyCount={companies.length}
+          companyCount={companies?.length}
           searchTerm={searchTerm}
           handleSearch={handleSearch}
           handleFilterChange={handleFilterChange}
@@ -436,7 +476,7 @@ export default function Companies() {
         />
 
         <div className="mt-8">
-          {filteredCompanies.length === 0 ? (
+          {filteredCompanies?.length === 0 ? (
             <div className="flex justify-center items-center h-64">
               <p>No companies found</p>
             </div>
@@ -538,6 +578,91 @@ export default function Companies() {
         confirmText="Change Status"
         cancelText="Cancel"
       />
+    </div>
+  );
+}
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  const errorTitle = isRouteErrorResponse(error)
+    ? `${error.status} ${error.statusText}`
+    : "Oops! Något gick fel.";
+
+  const errorMessage = isRouteErrorResponse(error)
+    ? error.data
+    : "Ett oväntat fel inträffade. Vi ber om ursäkt för besväret.";
+
+  return (
+    <div className="min-h-screen fixed w-full bg-gray-50 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white rounded-lg p-8">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-16 w-16 text-red-500" />
+          <h2 className="mt-6 text-3xl leading-relaxed font-extrabold text-gray-900">
+            {errorTitle}
+          </h2>
+          <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+            {errorMessage}
+          </p>
+        </div>
+        <div className="mt-8 space-y-6">
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <RefreshCw
+                  className="h-5 w-5 text-blue-400"
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm leading-relaxed text-blue-700">
+                  Prova att uppdatera sidan. Om problemet kvarstår, vänligen
+                  kontakta vår support.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-medium text-gray-900">
+              Behöver du hjälp?
+            </h3>
+            <div className="mt-4 space-y-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <MessageCircle
+                    className="h-6 w-6 text-green-500"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <p className="text-gray-700 leading-relaxed">
+                    Använd chattwidgeten i nedre högra hörnet för att prata med
+                    oss. Du kan både chatta och ringa via widgeten.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <Phone
+                    className="h-6 w-6 text-yellow-500"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <p className="text-gray-700 leading-relaxed ">
+                    Om du inte kan använda chattwidgeten, ring oss på:
+                  </p>
+                  <a
+                    href="tel:+46793394031"
+                    className="text-yellow-600 hover:text-yellow-500 font-medium"
+                  >
+                    +46 79 339 40 31
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

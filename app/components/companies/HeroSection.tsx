@@ -58,7 +58,7 @@ export function HeroSection({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="container mx-auto px-4">
+      <div className="md:container mx-auto px-4">
         <div className="flex flex-col space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">

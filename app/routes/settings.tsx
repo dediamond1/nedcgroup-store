@@ -102,7 +102,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="md:container mx-auto py-10">
       <Toaster position="top-right" />
       <motion.div
         initial={{ opacity: 0, y: 20 }}

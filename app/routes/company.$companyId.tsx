@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import {
+  isRouteErrorResponse,
+  useLoaderData,
+  useNavigate,
+  useRouteError,
+} from "@remix-run/react";
 import { json, type LoaderFunction } from "@remix-run/node";
 import { motion } from "framer-motion";
 import {
@@ -26,6 +31,9 @@ import {
   Trash,
   Loader,
   DollarSign,
+  AlertCircle,
+  RefreshCw,
+  MessageCircle,
 } from "lucide-react";
 import { requireUserToken } from "~/utils/auth.server";
 import { baseUrl } from "~/constants/api";
@@ -115,9 +123,12 @@ type OrderType = "comviq" | "lyca";
 
 export const loader: LoaderFunction = async ({ params, request }) => {
   const token = await requireUserToken(request);
-  const companyResponse = await fetch(`${baseUrl}/company/${params.id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const companyResponse = await fetch(
+    `${baseUrl}/company/${params.companyId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
 
   if (!companyResponse.ok) {
     throw new Error("Failed to fetch company details");
@@ -189,6 +200,8 @@ export default function CompanyDetails() {
     paymentHistory: PaymentHistory[];
     token: string;
   }>();
+
+  console.log(comviqOrders);
   const navigate = useNavigate();
   const [isActive, setIsActive] = useState<boolean>(company.IsActive);
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -526,7 +539,7 @@ export default function CompanyDetails() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen md:container mx-auto bg-gray-100 p-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -540,7 +553,7 @@ export default function CompanyDetails() {
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Companies
         </Button>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid  gap-6 md:grid-cols-3">
           <Card className="md:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-2xl font-bold">
@@ -629,7 +642,11 @@ export default function CompanyDetails() {
                 <span className="text-lg font-medium">
                   {isActive ? "Active" : "Inactive"}
                 </span>
-                <Button variant="outline" size="icon" onClick={toggleStatus}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => toggleStatus()}
+                >
                   {isActive ? (
                     <ToggleRight className="h-6 w-6 text-green-500" />
                   ) : (
@@ -715,7 +732,7 @@ export default function CompanyDetails() {
                       <DatePicker
                         id="startDate"
                         selected={startDate}
-                        onChange={(date: Date | null) => {
+                        onChange={(date: any) => {
                           setStartDate(date);
                           if (date && endDate && date > endDate) {
                             setEndDate(null);
@@ -729,7 +746,7 @@ export default function CompanyDetails() {
                       <DatePicker
                         id="endDate"
                         selected={endDate}
-                        onChange={(date: Date | null) => {
+                        onChange={(date: any) => {
                           setEndDate(date);
                           if (date && startDate && date < startDate) {
                             setStartDate(null);
@@ -917,7 +934,7 @@ export default function CompanyDetails() {
                       <DatePicker
                         id="invoiceStartDate"
                         selected={invoiceStartDate}
-                        onChange={(date: Date | null) =>
+                        onChange={(date: Date | null | any) =>
                           setInvoiceStartDate(date)
                         }
                         className="w-full"
@@ -928,7 +945,7 @@ export default function CompanyDetails() {
                       <DatePicker
                         id="invoiceEndDate"
                         selected={invoiceEndDate}
-                        onChange={(date: Date | null) =>
+                        onChange={(date: Date | null | any) =>
                           setInvoiceEndDate(date)
                         }
                         className="w-full"
@@ -1073,6 +1090,92 @@ export default function CompanyDetails() {
         confirmText="Delete"
         cancelText="Cancel"
       />
+    </div>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  const errorTitle = isRouteErrorResponse(error)
+    ? `${error.status} ${error.statusText}`
+    : "Oops! Något gick fel.";
+
+  const errorMessage = isRouteErrorResponse(error)
+    ? error.data
+    : "Ett oväntat fel inträffade. Vi ber om ursäkt för besväret.";
+
+  return (
+    <div className="min-h-screen fixed w-full bg-gray-50 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white rounded-lg p-8">
+        <div className="text-center">
+          <AlertCircle className="mx-auto h-16 w-16 text-red-500" />
+          <h2 className="mt-6 text-3xl leading-relaxed font-extrabold text-gray-900">
+            {errorTitle}
+          </h2>
+          <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+            {errorMessage}
+          </p>
+        </div>
+        <div className="mt-8 space-y-6">
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <RefreshCw
+                  className="h-5 w-5 text-blue-400"
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm leading-relaxed text-blue-700">
+                  Prova att uppdatera sidan. Om problemet kvarstår, vänligen
+                  kontakta vår support.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-medium text-gray-900">
+              Behöver du hjälp?
+            </h3>
+            <div className="mt-4 space-y-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <MessageCircle
+                    className="h-6 w-6 text-green-500"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <p className="text-gray-700 leading-relaxed">
+                    Använd chattwidgeten i nedre högra hörnet för att prata med
+                    oss. Du kan både chatta och ringa via widgeten.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <Phone
+                    className="h-6 w-6 text-yellow-500"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="ml-3 text-sm">
+                  <p className="text-gray-700 leading-relaxed ">
+                    Om du inte kan använda chattwidgeten, ring oss på:
+                  </p>
+                  <a
+                    href="tel:+46793394031"
+                    className="text-yellow-600 hover:text-yellow-500 font-medium"
+                  >
+                    +46 79 339 40 31
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

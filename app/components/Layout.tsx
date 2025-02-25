@@ -12,11 +12,6 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        onToggle={toggleSidebar}
-      />
       <div className="flex-1 flex flex-col">
         <header className="bg-white shadow-sm h-16 flex items-center">
           <button
@@ -26,6 +21,11 @@ export default function Layout() {
             <Menu size={24} />
           </button>
         </header>
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          onToggle={toggleSidebar}
+        />
         <main className="flex-1 overflow-y-auto transition-all duration-300">
           <Outlet />
         </main>

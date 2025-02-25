@@ -2,6 +2,7 @@
 
 import type { LinksFunction, LoaderFunction } from "@remix-run/node";
 import {
+  Link,
   Links,
   LiveReload,
   Meta,
@@ -36,51 +37,51 @@ export const loader: LoaderFunction = async ({ request }) => {
   });
 };
 
-// function Chat() {
-//   useEffect(() => {
-//     const script = document.createElement("script");
-//     script.src =
-//       "https://downloads-global.3cx.com/downloads/livechatandtalk/v1/callus.js";
-//     script.defer = true;
-//     script.id = "tcx-callus-js";
-//     script.charset = "utf-8";
+function Chat() {
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src =
+      "https://downloads-global.3cx.com/downloads/livechatandtalk/v1/callus.js";
+    script.defer = true;
+    script.id = "tcx-callus-js";
+    script.charset = "utf-8";
 
-//     // Override the default fetch behavior to use our proxy
-//     script.onload = () => {
-//       (window as any).tcx_callus_fetch = (
-//         url: string,
-//         options: RequestInit
-//       ) => {
-//         const proxyUrl = `/api/3cx-proxy?url=${encodeURIComponent(url)}`;
-//         return fetch(proxyUrl, {
-//           ...options,
-//           headers: {
-//             ...options.headers,
-//             "X-Requested-With": "XMLHttpRequest",
-//           },
-//         });
-//       };
-//     };
+    // Override the default fetch behavior to use our proxy
+    script.onload = () => {
+      (window as any).tcx_callus_fetch = (
+        url: string,
+        options: RequestInit
+      ) => {
+        const proxyUrl = `/api/3cx-proxy?url=${encodeURIComponent(url)}`;
+        return fetch(proxyUrl, {
+          ...options,
+          headers: {
+            ...options.headers,
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
+      };
+    };
 
-//     document.body.appendChild(script);
+    document.body.appendChild(script);
 
-//     return () => {
-//       if (document.body.contains(script)) {
-//         document.body.removeChild(script);
-//       }
-//     };
-//   }, []);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
-//   return (
-//     <div
-//       dangerouslySetInnerHTML={{
-//         __html: `
-//           <call-us-selector phonesystem-url="https://1314.3cx.cloud" party="techdevcyber"></call-us-selector>
-//         `,
-//       }}
-//     />
-//   );
-// }
+  return (
+    <div
+      dangerouslySetInnerHTML={{
+        __html: `
+          <call-us-selector phonesystem-url="https://1314.3cx.cloud" party="techdevcyber"></call-us-selector>
+        `,
+      }}
+    />
+  );
+}
 
 export default function App() {
   const { user } = useLoaderData<typeof loader>();
@@ -91,16 +92,15 @@ export default function App() {
   }, []);
 
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
         <Meta />
         <title>Admin | Nedcgroup</title>
         <Links />
       </head>
       <body>
-        <Outlet />
-        {/* {isMounted && (user ? <Layout /> : )} */}
-        {/* <Chat /> */}
+        {isMounted && (user ? <Layout /> : <Outlet />)}
+        <Chat />
         <ScrollRestoration />
         <Scripts />
         <LiveReload />

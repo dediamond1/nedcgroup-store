@@ -6,20 +6,24 @@ import {
   useNavigation,
   useSubmit,
 } from "@remix-run/react";
-import {
-  type ActionFunctionArgs,
-  type LoaderFunctionArgs,
-  json,
-  redirect,
+import { json, redirect } from "@remix-run/node";
+import type {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  MetaFunction,
 } from "@remix-run/node";
 import { login, createUserSession, isUserLoggedIn } from "~/utils/auth.server";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useState } from "react";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+
+export const meta: MetaFunction = () => {
+  return [
+    { title: "Login | Nedcgroup" },
+    { name: "description", content: "Login to your Nedcgroup account" },
+  ];
+};
 
 const validationSchema = Yup.object({
   email: Yup.string()
@@ -31,7 +35,7 @@ const validationSchema = Yup.object({
 export async function loader({ request }: LoaderFunctionArgs) {
   const userLoggedIn = await isUserLoggedIn(request);
   if (userLoggedIn) {
-    return redirect("/lager");
+    return redirect("/companies");
   }
   return null;
 }
@@ -47,8 +51,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   try {
     const token = await login(email, password);
-    console.log("token", token);
-    return createUserSession(token, "/lager");
+    return createUserSession(token, "/companies");
   } catch (error) {
     return json({ error: (error as Error).message }, { status: 400 });
   }
@@ -57,8 +60,8 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function Login() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
-  const submit = useSubmit();
   const [showPassword, setShowPassword] = useState(false);
+  const submit = useSubmit();
 
   const formik = useFormik({
     initialValues: {
@@ -72,119 +75,148 @@ export default function Login() {
   });
 
   return (
-    <div className="min-h-screen flex bg-gray-100">
-      <div className="w-1/2 bg-blue-600 flex items-center justify-center">
-        <div className="text-white">
-          <svg className="w-32 h-32" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-          </svg>
-          <h1 className="mt-6 text-4xl font-bold">Nedcgroup</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+      <div className="max-w-xl w-full border border-gray-400 space-y-10 p-10 bg-white rounded-2xl">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-10">Nedcgroup</h1>
+          <h2 className="text-xl font-semibold text-gray-700">
+            Welcome back — Login to continue
+          </h2>
         </div>
-      </div>
-
-      <div className="w-1/2 flex items-center justify-center">
-        <div className="w-full max-w-md space-y-8 p-8 bg-white rounded-xl shadow-lg">
-          <div>
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-              Sign in to your account
-            </h2>
-          </div>
-          <Form
-            method="post"
-            onSubmit={formik.handleSubmit}
-            className="mt-8 space-y-6"
-          >
-            <div className="space-y-4">
-              <div>
-                <Label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Email Address
-                </Label>
-                <Input
+        <Form
+          method="post"
+          onSubmit={formik.handleSubmit}
+          className="mt-8 space-y-8"
+        >
+          <div className="space-y-6">
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Email address
+              </label>
+              <div className="relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="h-6 w-6 text-gray-400" aria-hidden="true" />
+                </div>
+                <input
                   id="email"
                   name="email"
                   type="email"
                   autoComplete="email"
                   required
-                  className={`mt-1 ${
+                  className={`appearance-none block w-full pl-12 pr-4 py-4 border ${
                     formik.touched.email && formik.errors.email
-                      ? "border-red-500"
-                      : ""
-                  }`}
+                      ? "border-red-300"
+                      : "border-gray-300"
+                  } rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition duration-150 ease-in-out`}
+                  placeholder="Enter your email"
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   value={formik.values.email}
                 />
-                {formik.touched.email && formik.errors.email && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {formik.errors.email}
-                  </p>
-                )}
               </div>
-              <div>
-                <Label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Password
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    required
-                    className={`mt-1 ${
-                      formik.touched.password && formik.errors.password
-                        ? "border-red-500"
-                        : ""
-                    }`}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    value={formik.values.password}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOffIcon className="h-5 w-5 text-gray-500" />
-                    ) : (
-                      <EyeIcon className="h-5 w-5 text-gray-500" />
-                    )}
-                  </button>
-                </div>
-                {formik.touched.password && formik.errors.password && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {formik.errors.password}
-                  </p>
-                )}
-              </div>
+              {formik.touched.email && formik.errors.email && (
+                <p className="mt-2 text-sm text-red-600" id="email-error">
+                  {formik.errors.email}
+                </p>
+              )}
             </div>
-
-            {actionData?.error && (
-              <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
-                <p className="text-sm text-red-700">{actionData.error}</p>
-              </div>
-            )}
-
             <div>
-              <Button
-                type="submit"
-                disabled={navigation.state === "submitting" || !formik.isValid}
-                className="w-full"
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
-                {navigation.state === "submitting"
-                  ? "Signing in..."
-                  : "Sign in"}
-              </Button>
+                Password
+              </label>
+              <div className="relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-6 w-6 text-gray-400" aria-hidden="true" />
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  className={`appearance-none block w-full pl-12 pr-12 py-4 border ${
+                    formik.touched.password && formik.errors.password
+                      ? "border-red-300"
+                      : "border-gray-300"
+                  } rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition duration-150 ease-in-out`}
+                  placeholder="Enter your password"
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  value={formik.values.password}
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff
+                      className="h-6 w-6 text-gray-400"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Eye className="h-6 w-6 text-gray-400" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+              {formik.touched.password && formik.errors.password && (
+                <p className="mt-2 text-sm text-red-600" id="password-error">
+                  {formik.errors.password}
+                </p>
+              )}
             </div>
-          </Form>
-        </div>
+          </div>
+
+          {actionData?.error && (
+            <div className="rounded-xl bg-red-50 p-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{actionData.error}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <button
+              type="submit"
+              className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-sm text-lg font-medium text-white bg-violet-500 hover:bg-violet-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
+              disabled={navigation.state === "submitting"}
+            >
+              {navigation.state === "submitting" ? (
+                <svg
+                  className="animate-spin -ml-1 mr-3 h-6 w-6 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              ) : null}
+              {navigation.state === "submitting" ? "Signing in..." : "Sign in"}
+            </button>
+          </div>
+        </Form>
       </div>
     </div>
   );

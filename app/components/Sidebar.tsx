@@ -1,21 +1,21 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "@remix-run/react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Link, useLocation, useNavigate, Form } from "@remix-run/react";
 import {
   Building2,
-  FileText,
   Package,
   Upload,
+  FileText,
   Settings,
   LogOut,
   HelpCircle,
-  ChevronRight,
   Menu,
   X,
 } from "lucide-react";
+import { cn } from "~/lib/utils";
+import { Button } from "~/components/ui/button";
 
 interface NavLink {
   to: string;
@@ -23,204 +23,162 @@ interface NavLink {
   icon: React.ReactNode;
 }
 
-interface SettingsItem {
-  label: string;
-  icon: React.ReactNode;
-  action: () => void;
-}
-
 const navLinks: NavLink[] = [
-  { to: "/companies", label: "Hantera Företag", icon: <Building2 size={20} /> },
-  { to: "/lager", label: "Lager", icon: <Package size={20} /> },
-  { to: "/ladda-upp", label: "Ladda upp", icon: <Upload size={20} /> },
-  { to: "/the-rest", label: "Övriga tjänster", icon: <FileText size={20} /> },
+  { to: "/companies", label: "Företagar", icon: <Building2 size={25} /> },
+  { to: "/lager", label: "Lager", icon: <Package size={25} /> },
+  { to: "/ladda-upp", label: "Ladda upp", icon: <Upload size={25} /> },
+  { to: "/the-rest", label: "Övriga", icon: <FileText size={25} /> },
 ];
 
 interface SidebarProps {
   isOpen: boolean;
-  onClose: () => void;
   onToggle: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onToggle }) => {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const settingsRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const toggleSettings = () => setIsSettingsOpen(!isSettingsOpen);
-
-  const settingsItems: SettingsItem[] = [
-    {
-      label: "Settings",
-      icon: <Settings size={18} />,
-      action: () => navigate("/settings"),
-    },
-    {
-      label: "Help & Support",
-      icon: <HelpCircle size={18} />,
-      action: () => navigate("/support"),
-    },
-    {
-      label: "Logout",
-      icon: <LogOut size={18} />,
-      action: () => navigate("/logout"),
-    },
-  ];
-
-  useEffect(() => {
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (
-        settingsRef.current &&
-        !settingsRef.current.contains(event.target as Node)
-      ) {
-        setIsSettingsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
+  const checkMobile = useCallback(() => {
+    setIsMobile(window.innerWidth < 768);
   }, []);
 
-  const sidebarContent = (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
-        <AnimatePresence>
-          {isOpen && (
-            <motion.span
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: "auto" }}
-              exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.2 }}
-              className="text-xl font-semibold text-gray-800 overflow-hidden whitespace-nowrap"
-            >
-              Nedcgroup
-            </motion.span>
-          )}
-        </AnimatePresence>
-        <button
-          onClick={onToggle}
-          className="p-1 rounded-md text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 md:block"
-        >
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
-      <nav className="flex-1 overflow-y-auto py-4">
-        {navLinks.map((link) => (
-          <Link
-            key={link.to}
-            to={link.to}
-            className={`flex items-center px-4 py-3 text-sm font-medium transition-colors duration-200 ${
-              location.pathname === link.to
-                ? "text-blue-600 bg-blue-50"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            {link.icon}
-            <AnimatePresence>
-              {isOpen && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="ml-3 overflow-hidden whitespace-nowrap"
-                >
-                  {link.label}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </Link>
-        ))}
-      </nav>
-      <div className="p-4 border-t border-gray-200" ref={settingsRef}>
-        <div className="relative">
-          <button
-            onClick={toggleSettings}
-            className={`flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-              isSettingsOpen
-                ? "bg-gray-100 text-gray-900"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <Settings size={20} />
-            <AnimatePresence>
-              {isOpen && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="ml-3 flex-1 text-left overflow-hidden whitespace-nowrap"
-                >
-                  More options
-                </motion.span>
-              )}
-            </AnimatePresence>
-            {isOpen && (
-              <ChevronRight
-                size={16}
-                className={`transition-transform duration-200 ${
-                  isSettingsOpen ? "rotate-90" : ""
-                }`}
-              />
-            )}
-          </button>
-          <AnimatePresence>
-            {isSettingsOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                transition={{ duration: 0.2 }}
-                className={`absolute ${
-                  isOpen ? "bottom-full left-0 mb-2" : "bottom-0 left-full ml-2"
-                } w-48 bg-white rounded-md shadow-lg overflow-hidden border border-gray-200`}
-              >
-                {settingsItems.map((item, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      item.action();
-                      setIsSettingsOpen(false);
-                    }}
-                    className="flex items-center w-full px-4 py-3 text-sm text-left text-gray-700 hover:bg-gray-100 transition-colors duration-200"
-                  >
-                    {item.icon}
-                    <span className="ml-3">{item.label}</span>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-    </div>
+  const handleClickOutside = useCallback(
+    (event: MouseEvent) => {
+      if (
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target as Node) &&
+        isOpen
+      ) {
+        onToggle();
+      }
+    },
+    [isOpen, onToggle]
+  );
+
+  useEffect(() => {
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      window.removeEventListener("resize", checkMobile);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [checkMobile, handleClickOutside]);
+
+  const sidebarClasses = cn(
+    "fixed top-0 left-0 h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out",
+    "z-[9999]", // Highest z-index
+    isMobile
+      ? isOpen
+        ? "w-64 translate-x-0"
+        : "w-64 -translate-x-full"
+      : isOpen
+      ? "w-64"
+      : "w-20"
   );
 
   return (
     <>
-      {/* Mobile overlay */}
-      <div
-        className={`fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden ${
-          isOpen ? "block" : "hidden"
-        }`}
-        onClick={onClose}
-      ></div>
-
-      {/* Sidebar */}
-      <motion.div
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-white shadow-lg md:shadow-none transition-transform md:transition-none ${
-          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        }`}
-        initial={false}
-        animate={{ width: isOpen ? "256px" : "72px" }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-      >
-        {sidebarContent}
-      </motion.div>
+      {isMobile && isOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-[9998]"
+          onClick={onToggle}
+        ></div>
+      )}
+      <aside className={sidebarClasses} ref={sidebarRef}>
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+            {(isOpen || isMobile) && (
+              <span className="text-xl font-semibold text-gray-800">
+                Nedcgroup
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              aria-label={isOpen ? "Close sidebar" : "Open sidebar"}
+            >
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </Button>
+          </div>
+          <nav className="flex-1 overflow-y-auto py-6">
+            {navLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={cn(
+                  "flex items-center px-4 py-4 my-4 text-sm transition-colors duration-200",
+                  location.pathname === link.to
+                    ? "text-blue-600 bg-blue-50 font-medium"
+                    : "text-gray-700 hover:bg-gray-100"
+                )}
+              >
+                <span className={cn(isOpen || isMobile ? "mr-3" : "mx-auto")}>
+                  {link.icon}
+                </span>
+                {(isOpen || isMobile) && <span>{link.label}</span>}
+              </Link>
+            ))}
+          </nav>
+          <div className="border-t border-gray-200 p-4">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-700 hover:bg-gray-100"
+              onClick={() => navigate("/settings")}
+            >
+              <Settings
+                size={20}
+                className={cn(isOpen || isMobile ? "mr-3" : "mx-auto")}
+              />
+              {(isOpen || isMobile) && <span>Inställningar</span>}
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-700 hover:bg-gray-100 mt-2"
+              onClick={() => navigate("/support")}
+            >
+              <HelpCircle
+                size={20}
+                className={cn(isOpen || isMobile ? "mr-3" : "mx-auto")}
+              />
+              {(isOpen || isMobile) && <span>Hjälp & Support</span>}
+            </Button>
+            <Form method="post" action="/logout">
+              <Button
+                variant="ghost"
+                type="submit"
+                className="w-full justify-start text-gray-700 hover:bg-gray-100 mt-2"
+              >
+                <LogOut
+                  size={20}
+                  className={cn(isOpen || isMobile ? "mr-3" : "mx-auto")}
+                />
+                {(isOpen || isMobile) && <span>Logga ut</span>}
+              </Button>
+            </Form>
+          </div>
+        </div>
+      </aside>
+      {!isMobile && (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onToggle}
+          className={cn(
+            "fixed top-4 left-4 z-[10000] transition-all duration-300 ease-in-out",
+            isOpen ? "left-[260px]" : "left-4"
+          )}
+          aria-label={isOpen ? "Close sidebar" : "Open sidebar"}
+        >
+          {isOpen ? <X size={20} /> : <Menu size={20} />}
+        </Button>
+      )}
     </>
   );
 };
