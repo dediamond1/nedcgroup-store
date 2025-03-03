@@ -21,6 +21,7 @@ import { RegistrationTrends } from "~/components/companies/RegistrationTrends";
 import { CompanyList } from "~/components/companies/CompanyList";
 import { Pagination } from "~/components/companies/Pagination";
 import { CompanyModal } from "~/components/companies/CompanyModal";
+
 import Spinner from "~/components/ui/Spinner";
 import { ConfirmationModal } from "~/components/ui/ConfirmationModal";
 import {
@@ -31,6 +32,7 @@ import {
   RefreshCw,
   XCircle,
 } from "lucide-react";
+import AddPaymentModal from "~/components/ui/PaymentHistoryModal";
 
 // API setup
 const api = create({
@@ -203,6 +205,14 @@ export default function Companies() {
     string | null
   >(null);
   const [newStatus, setNewStatus] = useState<boolean>(false);
+
+  // New state for payment modal
+  const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
+  const [selectedCompanyForPayment, setSelectedCompanyForPayment] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
   const companiesPerPage = 10;
   const navigate = useNavigate();
 
@@ -269,6 +279,12 @@ export default function Companies() {
     setCurrentCompany(null);
     setModalMode("create");
     setIsModalOpen(true);
+  };
+
+  // New handler for adding payment
+  const handleAddPayment = (id: string, name: string) => {
+    setSelectedCompanyForPayment({ id, name });
+    setIsAddPaymentModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -502,6 +518,7 @@ export default function Companies() {
                 setCompanyToChangeStatus(id);
                 setNewStatus(status);
               }}
+              handleAddPayment={handleAddPayment} // Pass the new handler
             />
           )}
         </div>
@@ -578,6 +595,25 @@ export default function Companies() {
         confirmText="Change Status"
         cancelText="Cancel"
       />
+
+      {/* Add Payment Modal */}
+      {isAddPaymentModalOpen && selectedCompanyForPayment && (
+        <AddPaymentModal
+          isOpen={isAddPaymentModalOpen}
+          onClose={() => {
+            setIsAddPaymentModalOpen(false);
+            setSelectedCompanyForPayment(null);
+          }}
+          companyId={selectedCompanyForPayment.id}
+          companyName={selectedCompanyForPayment.name}
+          token={token}
+          onSuccess={() => {
+            toast.success(
+              `Payment added successfully for ${selectedCompanyForPayment.name}`
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

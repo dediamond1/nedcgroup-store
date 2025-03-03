@@ -1,5 +1,4 @@
-"use client";
-
+// Update in app/components/companies/CompanyTable.tsx
 import { Table, TableBody, TableCell, TableRow } from "~/components/ui/table";
 import { Button } from "~/components/ui/button";
 import {
@@ -16,6 +15,7 @@ import {
   RefreshCw,
   Key,
   ExternalLink,
+  DollarSign,
 } from "lucide-react";
 import { Link } from "@remix-run/react";
 import { Switch } from "~/components/ui/switch";
@@ -39,6 +39,7 @@ interface CompanyTableProps {
   handleResetPassword: (id: string) => void;
   handleResetPin: (id: string) => void;
   handleStatusChange: (id: string, newStatus: boolean) => void;
+  handleAddPayment: (id: string, name: string) => void; // New handler
 }
 
 export function CompanyTable({
@@ -48,6 +49,7 @@ export function CompanyTable({
   handleResetPassword,
   handleResetPin,
   handleStatusChange,
+  handleAddPayment, // New handler
 }: CompanyTableProps) {
   const getDropdownItems = (company: Company) => [
     {
@@ -60,6 +62,11 @@ export function CompanyTable({
       icon: Edit,
       label: "Edit",
       onClick: () => handleEdit(company),
+    },
+    {
+      icon: DollarSign,
+      label: "Add Payment",
+      onClick: () => handleAddPayment(company._id, company.name),
     },
     { isSeparator: true },
     {
