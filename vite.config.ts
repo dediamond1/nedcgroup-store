@@ -9,9 +9,16 @@ declare module "@remix-run/node" {
 }
 
 export default defineConfig({
+  build: {
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        sourcemapExcludeSources: false
+      }
+    }
+  },
   
   plugins: [
-    
     remix({
       future: {
         v3_fetcherPersist: true,
@@ -23,7 +30,5 @@ export default defineConfig({
     }),
     
     tsconfigPaths(),
-
   ],
-  
 });
