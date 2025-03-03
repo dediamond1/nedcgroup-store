@@ -5,9 +5,9 @@
 
 @font-face {
   font-family: 'Panton';
-  src: url('../fonts/poppins.medium.ttf') format('truetype'),
-       url('../assets/fonts/Panton-Trial-SemiBold.ttf') format('truetype'),
-       url('../assets/fonts/Panton-Trial-Bold.ttf') format('truetype');
+  src: url('/fonts/poppins.medium.ttf') format('truetype'),
+       url('/assets/fonts/Panton-Trial-SemiBold.ttf') format('truetype'),
+       url('/assets/fonts/Panton-Trial-Bold.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }

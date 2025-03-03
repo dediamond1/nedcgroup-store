@@ -42,7 +42,7 @@ export async function getUserToken(request: Request): Promise<string | null> {
   return token
 }
 
-export async function requireUserToken(request: Request, redirectTo = "/login"): Promise<string> {
+export async function requireUserToken(request: Request, redirectTo = "/"): Promise<string> {
   const token = await getUserToken(request)
   if (!token) {
     throw redirect(redirectTo)
