@@ -26,6 +26,17 @@ interface TotalSale {
   previousAmount?: number;
 }
 
+// Helper function to format a date to YYYY-MM-DD in local timezone
+function formatLocalDate(date: Date): string {
+  return (
+    date.getFullYear() +
+    "-" +
+    String(date.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(date.getDate()).padStart(2, "0")
+  );
+}
+
 export function TotalSales({
   token,
   startDate,
@@ -75,6 +86,10 @@ export function TotalSales({
       setLoading(true);
       setError(null);
 
+      // Convert dates to YYYY-MM-DD format in local timezone
+      const fromDate = formatLocalDate(startDate);
+      const toDate = formatLocalDate(endDate);
+
       const [comviqResponse, lycaResponse] = await Promise.all([
         fetch(`${baseUrl}/accounts/getAllOrdersbydateCompanies`, {
           method: "POST",
@@ -83,8 +98,8 @@ export function TotalSales({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            fromdate: startDate.toISOString(),
-            todate: endDate.toISOString(),
+            fromdate: fromDate,
+            todate: toDate,
           }),
         }),
         fetch(`${baseUrl}/lyca/accounts/getAllOrdersbydateCompanies`, {
@@ -94,8 +109,8 @@ export function TotalSales({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            fromdate: startDate.toISOString(),
-            todate: endDate.toISOString(),
+            fromdate: fromDate,
+            todate: toDate,
           }),
         }),
       ]);
