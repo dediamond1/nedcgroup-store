@@ -6,7 +6,7 @@
     "**/.server/**/*.tsx",
     "**/.client/**/*.ts",
     "**/.client/**/*.tsx"
-, "app/routes/companies/.$id.tsx", "app/routes/companies/.$companyId.tsx", "app/routes/companies/.$companyId.tsx"  ],
+, "app/routes/companies/.$id.tsx", "app/routes/companies/.$companyId.tsx", "app/routes/companies/.$companyId.tsx", "app/routes/company.$companyId.newtsx"  ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "types": ["@remix-run/node", "vite/client"],

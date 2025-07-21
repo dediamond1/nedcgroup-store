@@ -1,17 +1,29 @@
  //export const baseUrl = "http://localhost:3004/api"
  export const baseUrl = "https://artinsgruppen2-a22da2d8d991.herokuapp.com/api"
+//  export const baseUrl = "http://192.168.1.88:3004/api"
 
 
 export const endpoints = {
   login: "/admin/login",
   adminUser: "/admin/me",
-
-  register: "/api/auth/register", // Adjust this if the registration endpoint is different
-  // Add other endpoints as needed
+  register: "/api/auth/register",
+  
+  // Order endpoints
+  comviqOrders: "/order/detail",
+  lycaOrders: "/lyca-order/detail", 
+  teliaOrders: "/teliaOrder/details",
+  halebopOrders: "/teliaOrder/details",
+  
+  // Other endpoints
+  dailySales: "/order/dailysale",
+  paymentHistory: "/paidhistory",
+  companyStatus: "/company/status",
+  generateInvoice: "/order/getInvoicebydate"
 }
 
 export const getHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
   "Content-Type": "application/json",
 })
+
 

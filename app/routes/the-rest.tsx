@@ -43,6 +43,7 @@ import {
 
 import { requireUserToken } from "~/utils/auth.server";
 import { TotalSales } from "~/components/companies/reset/TotalSales";
+import { VoucherSearch } from "~/components/companies/reset/VoucherSearch";
 import { SuccessInvoices } from "~/components/companies/reset/SuccessInvoices";
 import { FailedInvoices } from "~/components/companies/reset/FailedInvoices";
 import { ArticleData } from "~/components/companies/reset/ArticleData";
@@ -81,7 +82,7 @@ export default function UtilitiesPage() {
   // Track if tab content has been loaded
   const [tabsLoaded, setTabsLoaded] = useState({
     dashboard: false,
-    articleData: false,
+    voucherSearch: false,
     generator: false,
   });
 
@@ -267,11 +268,11 @@ export default function UtilitiesPage() {
                 Översikt
               </TabsTrigger>
               <TabsTrigger
-                value="article-data"
+                value="voucher-search"
                 className="flex-1 py-3 text-base rounded-md data-[state=active]:bg-blue-600 data-[state=active]:text-white"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Artikeldata
+                Sök Voucher
               </TabsTrigger>
               <TabsTrigger
                 value="generator"
@@ -371,7 +372,7 @@ export default function UtilitiesPage() {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                       <TotalSales
                         token={token}
                         startDate={startDate}
@@ -448,70 +449,9 @@ export default function UtilitiesPage() {
             )}
           </TabsContent>
 
-          {/* Article Data Tab */}
-          <TabsContent value="article-data" className="space-y-6">
-            {tabsLoaded.articleData && (
-              <Card className="shadow-sm border-gray-200 hover:shadow-md transition-shadow duration-200">
-                <CardHeader className="pb-2 bg-gray-50 rounded-t-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-blue-600 mr-2" />
-                      <div>
-                        <CardTitle className="text-gray-800">
-                          Artikeldata
-                        </CardTitle>
-                        <CardDescription>
-                          Visa och analysera artikeldata
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <HelpCircle className="h-5 w-5 text-gray-400" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p>
-                            Den här fliken visar all artikeldata. Använd
-                            datumfilter från översiktsfliken för att begränsa
-                            resultaten.
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                    <div className="flex items-start">
-                      <Info className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
-                      <div>
-                        <h3 className="font-medium text-blue-800">
-                          Använda datumfilter
-                        </h3>
-                        <p className="text-sm text-blue-600">
-                          Datumfilter som ställts in på översiktsfliken används
-                          även här.
-                          {(!startDate || !endDate) && (
-                            <span className="block mt-1 font-medium">
-                              Inget datumintervall är valt. Visar all data.
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <ArticleData
-                    token={token}
-                    startDate={startDate}
-                    endDate={endDate}
-                  />
-                </CardContent>
-              </Card>
-            )}
+          {/* Voucher Search Tab */}
+          <TabsContent value="voucher-search" className="space-y-6">
+            {<VoucherSearch token={token} />}
           </TabsContent>
 
           {/* Batch Invoice Generator Tab */}

@@ -22,7 +22,13 @@ export interface BaseOrder {
   export interface LycaOrder extends BaseOrder {
     isLyca: string
   }
+
+export interface TeliaOrder extends BaseOrder {
+    isTelia: string
+  }
+
+export interface HalebopOrder extends BaseOrder {
+    isHalebop: string
+  }
   
-  export type Order = ComviqOrder | LycaOrder
-  
-  
+  export type Order = ComviqOrder | LycaOrder | TeliaOrder | HalebopOrder

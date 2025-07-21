@@ -11,6 +11,13 @@ import {
   ArrowDownRight,
   RefreshCw,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { baseUrl } from "~/constants/api";
 
 export interface TotalSalesProps {
@@ -43,41 +50,39 @@ export function TotalSales({
   endDate,
   onReset,
 }: TotalSalesProps) {
-  const [comviqTotal, setComviqTotal] = useState<TotalSale | null>(null);
-  const [lycaTotal, setLycaTotal] = useState<TotalSale | null>(null);
+  const [operator, setOperator] = useState<string>("comviq");
+  const [operatorTotal, setOperatorTotal] = useState<TotalSale | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+  const [timeUntilRefresh, setTimeUntilRefresh] = useState(10);
+  const [showCountdown, setShowCountdown] = useState(false);
 
   const fetchTotals = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [comviqResponse, lycaResponse] = await Promise.all([
-        fetch(`${baseUrl}/accounts/totalamount`, {
+      const response = await fetch(
+        `${baseUrl}/accounts/totalamount/${operator}`,
+        {
           headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${baseUrl}/lyca/accounts/totalamount`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+        }
+      );
 
-      if (!comviqResponse.ok || !lycaResponse.ok) {
+      if (!response.ok) {
         throw new Error("Failed to fetch sales data");
       }
 
-      const comviqData = await comviqResponse.json();
-      const lycaData = await lycaResponse.json();
-
-      setComviqTotal(comviqData.TotalSale);
-      setLycaTotal(lycaData.TotalSale);
+      const data = await response.json();
+      setOperatorTotal(data.TotalSale);
     } catch (error) {
       console.error("Error fetching total sales:", error);
       setError("Failed to load sales data. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, operator]);
 
   const fetchFilteredTotals = useCallback(async () => {
     if (!startDate || !endDate) return;
@@ -90,8 +95,9 @@ export function TotalSales({
       const fromDate = formatLocalDate(startDate);
       const toDate = formatLocalDate(endDate);
 
-      const [comviqResponse, lycaResponse] = await Promise.all([
-        fetch(`${baseUrl}/accounts/getAllOrdersbydateCompanies`, {
+      const response = await fetch(
+        `${baseUrl}/accounts/getAllOrdersbydateCompanies/${operator}`,
+        {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -101,48 +107,56 @@ export function TotalSales({
             fromdate: fromDate,
             todate: toDate,
           }),
-        }),
-        fetch(`${baseUrl}/lyca/accounts/getAllOrdersbydateCompanies`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            fromdate: fromDate,
-            todate: toDate,
-          }),
-        }),
-      ]);
+        }
+      );
 
-      if (!comviqResponse.ok || !lycaResponse.ok) {
+      if (!response.ok) {
         throw new Error("Failed to fetch filtered sales data");
       }
 
-      const comviqData = await comviqResponse.json();
-      const lycaData = await lycaResponse.json();
-
-      setComviqTotal(comviqData.TotalSale);
-      setLycaTotal(lycaData.TotalSale);
+      const data = await response.json();
+      setOperatorTotal(data.TotalSale);
     } catch (error) {
       console.error("Error fetching filtered total sales:", error);
       setError("Failed to load filtered sales data. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [token, startDate, endDate]);
+  }, [token, startDate, endDate, operator]);
 
-  // Initial load
+  // Initial load and when operator changes
   useEffect(() => {
     fetchTotals();
-  }, [fetchTotals]);
+  }, [fetchTotals, operator]);
 
-  // When date filter changes
+  // When date filter or operator changes
   useEffect(() => {
     if (startDate && endDate) {
       fetchFilteredTotals();
+      setAutoRefreshEnabled(true);
+    } else {
+      setAutoRefreshEnabled(false);
     }
-  }, [fetchFilteredTotals, startDate, endDate]);
+  }, [fetchFilteredTotals, startDate, endDate, operator]);
+
+  // Auto-refresh when dates are selected
+  useEffect(() => {
+    if (!autoRefreshEnabled || !startDate || !endDate) return;
+
+    const interval = setInterval(() => {
+      fetchFilteredTotals();
+      setTimeUntilRefresh(10); // Reset countdown
+    }, 10000);
+
+    const countdownInterval = setInterval(() => {
+      setTimeUntilRefresh((prev) => (prev > 0 ? prev - 1 : 10));
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(countdownInterval);
+    };
+  }, [autoRefreshEnabled, fetchFilteredTotals, startDate, endDate]);
 
   const handleReset = async () => {
     try {
@@ -177,149 +191,104 @@ export function TotalSales({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {loading ? (
-          <>
-            <Skeleton className="h-36 w-full" />
-            <Skeleton className="h-36 w-full" />
-          </>
-        ) : (
-          <>
-            <Card className="overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 pb-2">
-                <CardTitle className="text-lg flex justify-between">
-                  <span>Comviq Sales</span>
-                  <BadgePercent className="h-5 w-5 text-blue-500" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                {comviqTotal ? (
-                  <div className="space-y-2">
-                    <div className="flex items-baseline justify-between">
-                      <h3 className="text-2xl font-bold">
-                        {formatCurrency(comviqTotal.amount || 0)}
-                      </h3>
-                      {comviqTotal.previousAmount && (
-                        <div className="flex items-center">
-                          {calculatePercentage(
-                            comviqTotal.amount,
-                            comviqTotal.previousAmount
-                          ) > 0 ? (
-                            <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
-                          ) : (
-                            <ArrowDownRight className="h-4 w-4 text-red-500 mr-1" />
-                          )}
-                          <span
-                            className={`text-sm font-medium ${
-                              calculatePercentage(
-                                comviqTotal.amount,
-                                comviqTotal.previousAmount
-                              ) > 0
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {Math.abs(
-                              calculatePercentage(
-                                comviqTotal.amount,
-                                comviqTotal.previousAmount
-                              )
-                            ).toFixed(1)}
-                            %
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {comviqTotal.previousAmount && (
-                      <p className="text-sm text-gray-500">
-                        Previous period:{" "}
-                        {formatCurrency(comviqTotal.previousAmount)}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No data available</p>
-                )}
-              </CardContent>
-            </Card>
+      <div className="space-y-4">
+        <div className="flex items-center space-x-4">
+          <Select value={operator} onValueChange={setOperator}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select operator" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="comviq">Comviq</SelectItem>
+              <SelectItem value="lyca">Lyca</SelectItem>
+              <SelectItem value="telia">Telia</SelectItem>
+              <SelectItem value="halebop">Halebop</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-            <Card className="overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100 pb-2">
-                <CardTitle className="text-lg flex justify-between">
-                  <span>Lyca Sales</span>
-                  <BadgePercent className="h-5 w-5 text-purple-500" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                {lycaTotal ? (
-                  <div className="space-y-2">
-                    <div className="flex items-baseline justify-between">
-                      <h3 className="text-2xl font-bold">
-                        {formatCurrency(lycaTotal.amount || 0)}
-                      </h3>
-                      {lycaTotal.previousAmount && (
-                        <div className="flex items-center">
-                          {calculatePercentage(
-                            lycaTotal.amount,
-                            lycaTotal.previousAmount
-                          ) > 0 ? (
-                            <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
-                          ) : (
-                            <ArrowDownRight className="h-4 w-4 text-red-500 mr-1" />
-                          )}
-                          <span
-                            className={`text-sm font-medium ${
-                              calculatePercentage(
-                                lycaTotal.amount,
-                                lycaTotal.previousAmount
-                              ) > 0
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {Math.abs(
-                              calculatePercentage(
-                                lycaTotal.amount,
-                                lycaTotal.previousAmount
-                              )
-                            ).toFixed(1)}
-                            %
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {lycaTotal.previousAmount && (
-                      <p className="text-sm text-gray-500">
-                        Previous period:{" "}
-                        {formatCurrency(lycaTotal.previousAmount)}
-                      </p>
+        {loading ? (
+          <Skeleton className="h-36 w-full" />
+        ) : (
+          <Card className="overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 pb-2">
+              <CardTitle className="text-lg flex justify-between">
+                <span>
+                  {operator.charAt(0).toUpperCase() + operator.slice(1)} Sales
+                </span>
+                <BadgePercent className="h-5 w-5 text-blue-500" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {operatorTotal ? (
+                <div className="space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <h3 className="text-2xl font-bold">
+                      {formatCurrency(operatorTotal.amount || 0)}
+                    </h3>
+                    {operatorTotal.previousAmount && (
+                      <div className="flex items-center">
+                        {calculatePercentage(
+                          operatorTotal.amount,
+                          operatorTotal.previousAmount
+                        ) > 0 ? (
+                          <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
+                        ) : (
+                          <ArrowDownRight className="h-4 w-4 text-red-500 mr-1" />
+                        )}
+                        <span
+                          className={`text-sm font-medium ${
+                            calculatePercentage(
+                              operatorTotal.amount,
+                              operatorTotal.previousAmount
+                            ) > 0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {Math.abs(
+                            calculatePercentage(
+                              operatorTotal.amount,
+                              operatorTotal.previousAmount
+                            )
+                          ).toFixed(1)}
+                          %
+                        </span>
+                      </div>
                     )}
                   </div>
-                ) : (
-                  <p className="text-gray-500">No data available</p>
-                )}
-              </CardContent>
-            </Card>
-          </>
+                  {operatorTotal.previousAmount && (
+                    <p className="text-sm text-gray-500">
+                      Previous period:{" "}
+                      {formatCurrency(operatorTotal.previousAmount)}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-500">No data available</p>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
 
-      <div className="flex justify-end space-x-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleReset}
-          disabled={loading}
-        >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Reset
-        </Button>
-        {startDate && endDate && (
-          <Button size="sm" onClick={fetchFilteredTotals} disabled={loading}>
-            <ArrowRight className="mr-2 h-4 w-4" />
-            Refresh
+      <div className="flex justify-end">
+        <div className="flex space-x-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            disabled={loading}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Reset
           </Button>
-        )}
+          {startDate && endDate && (
+            <Button size="sm" onClick={fetchFilteredTotals} disabled={loading}>
+              <ArrowRight className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
