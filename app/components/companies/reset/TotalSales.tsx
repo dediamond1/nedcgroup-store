@@ -96,7 +96,7 @@ export function TotalSales({
       const toDate = formatLocalDate(endDate);
 
       const response = await fetch(
-        `${baseUrl}/accounts/getAllOrdersbydateCompaniess/${operator}`,
+        `${baseUrl}/accounts/getAllOrdersbydateCompanies/${operator}`,
         {
           method: "POST",
           headers: {
