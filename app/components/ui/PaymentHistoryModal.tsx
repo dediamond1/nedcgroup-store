@@ -24,17 +24,37 @@ export default function AddPaymentModal({
   token,
   onSuccess,
 }: AddPaymentModalProps) {
-  const [paymentAmount, setPaymentAmount] = useState<string>("");
+  const [originalAmount, setOriginalAmount] = useState<string>("");
+  const [commissionAmount, setCommissionAmount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleAmountChange = (value: string) => {
+    setOriginalAmount(value);
+
+    // Calculate amount + 9% in real-time
+    const amount = parseFloat(value);
+    if (!isNaN(amount)) {
+      const totalWithCommission = amount * 1.09; // Add 9% to the amount
+      setCommissionAmount(totalWithCommission);
+    } else {
+      setCommissionAmount(0);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && originalAmount && !isLoading) {
+      handleAddPayment();
+    }
+  };
+
   const handleAddPayment = async () => {
-    if (!paymentAmount || isNaN(Number(paymentAmount))) {
-      toast.error("Please enter a valid payment amount");
+    if (!originalAmount || isNaN(Number(originalAmount))) {
+      toast.error("Vänligen ange ett giltigt betalningsbelopp");
       return;
     }
 
     setIsLoading(true);
-    toast.loading("Adding payment...");
+    toast.loading("Lägger till betalning...");
 
     try {
       const response = await fetch(`${baseUrl}/paidhistory/${companyId}`, {
@@ -45,25 +65,26 @@ export default function AddPaymentModal({
         },
         body: JSON.stringify({
           id: "",
-          PaidAmount: paymentAmount,
+          PaidAmount: commissionAmount.toFixed(2), // Save the amount with +9%
         }),
       });
 
       if (response.ok) {
         toast.dismiss();
-        toast.success("Payment added successfully");
-        setPaymentAmount("");
+        toast.success("Betalning tillagd framgångsrikt");
+        setOriginalAmount("");
+        setCommissionAmount(0);
         onClose();
         if (onSuccess) {
           onSuccess();
         }
       } else {
         toast.dismiss();
-        toast.error("Failed to add payment");
+        toast.error("Misslyckades att lägga till betalning");
       }
     } catch (error) {
       toast.dismiss();
-      toast.error("An error occurred while adding the payment");
+      toast.error("Ett fel uppstod vid tillägg av betalning");
     } finally {
       setIsLoading(false);
     }
@@ -73,18 +94,19 @@ export default function AddPaymentModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Add Payment - ${companyName}`}
+      title={`Lägg till betalning - ${companyName}`}
     >
       <div className="space-y-4">
         <div>
-          <Label htmlFor="paymentAmount">Payment Amount (SEK)</Label>
+          <Label htmlFor="paymentAmount">Betalningsbelopp (SEK)</Label>
           <div className="relative mt-1">
             <Input
               id="paymentAmount"
               type="number"
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              placeholder="Enter payment amount"
+              value={originalAmount}
+              onChange={(e) => handleAmountChange(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ange betalningsbelopp"
               className="pl-8"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -92,21 +114,33 @@ export default function AddPaymentModal({
             </div>
           </div>
         </div>
+
+        {commissionAmount > 0 && (
+          <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
+            <div className="text-sm text-blue-800">
+              <div className="font-medium">Totalt med 9% provision: {commissionAmount.toFixed(2)} SEK</div>
+              <div className="text-xs mt-1">
+                Ursprungligt belopp: {originalAmount} SEK (+9% = {(!isNaN(parseFloat(originalAmount)) ? (parseFloat(originalAmount) * 0.09).toFixed(2) : '0.00')} SEK)
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end space-x-3 mt-6">
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
+            Avbryt
           </Button>
           <Button
             onClick={handleAddPayment}
-            disabled={isLoading || !paymentAmount}
+            disabled={isLoading || !originalAmount}
           >
             {isLoading ? (
               <>
                 <Loader className="mr-2 h-4 w-4 animate-spin" />
-                Processing...
+                Bearbetar...
               </>
             ) : (
-              "Add Payment"
+              "Lägg till betalning"
             )}
           </Button>
         </div>
