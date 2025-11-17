@@ -1,0 +1,10 @@
+[build]
+  command = "pnpm build"
+  publish = ".netlify"
+
+[[plugins]]
+  package = "@netlify/remix-edge-adapter"
+
+[build.environment]
+  NODE_VERSION = "20"
+

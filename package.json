@@ -75,6 +75,8 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@netlify/remix-edge-adapter": "^3.5.0",
+    "@netlify/remix-runtime": "^2.4.0",
     "@remix-run/dev": "^2.14.0",
     "@rollup/plugin-typescript": "^12.1.2",
     "@types/lodash-es": "^4.17.12",
