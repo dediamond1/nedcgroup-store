@@ -1,5 +1,3 @@
-"use client";
-
 import type { LinksFunction, LoaderFunction } from "@remix-run/node";
 import {
   Link,

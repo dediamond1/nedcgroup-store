@@ -1,5 +1,6 @@
  //export const baseUrl = "http://localhost:3004/api"
- export const baseUrl = "https://nedc-api.techdevcyber.se/api"
+//  export const baseUrl = "https://nedc-api.techdevcyber.se/api"
+ export const baseUrl = "https://artinsgruppen2-a22da2d8d991.herokuapp.com/api"
 //  export const baseUrl = "http://192.168.1.88:3004/api"
 
 

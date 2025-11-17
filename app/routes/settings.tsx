@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import { useLoaderData, useActionData, useNavigate } from "@remix-run/react";
 import {

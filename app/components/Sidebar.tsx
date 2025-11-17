@@ -1,4 +1,3 @@
-"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate, Form } from "@remix-run/react";

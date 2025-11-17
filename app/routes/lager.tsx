@@ -1,4 +1,3 @@
-"use client";
 
 import React, { useState } from "react";
 import { json, type LoaderFunction } from "@remix-run/node";

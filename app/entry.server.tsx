@@ -24,6 +24,12 @@ export default function handleRequest(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   loadContext: AppLoadContext
 ) {
+  // Silently handle Chrome DevTools .well-known requests
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/.well-known/")) {
+    return new Response(null, { status: 404 });
+  }
+
   return isbot(request.headers.get("user-agent") || "")
     ? handleBotRequest(
         request,

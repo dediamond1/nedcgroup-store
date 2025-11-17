@@ -17,8 +17,24 @@ export default defineConfig({
       }
     }
   },
-  
+  server: {
+    port: 5173,
+  },
   plugins: [
+    // Plugin to handle .well-known requests before they reach Remix
+    {
+      name: "ignore-well-known",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url?.startsWith("/.well-known/")) {
+            res.statusCode = 404;
+            res.end();
+            return;
+          }
+          next();
+        });
+      },
+    },
     remix({
       future: {
         v3_fetcherPersist: true,
