@@ -9,7 +9,6 @@ import {
   useSearchParams,
 } from "@remix-run/react";
 import { json, type LoaderFunction } from "@remix-run/node";
-import { create } from "apisauce";
 import { toast, Toaster } from "react-hot-toast";
 import { debounce } from "lodash-es";
 
@@ -33,10 +32,29 @@ import {
 } from "lucide-react";
 import AddPaymentModal from "~/components/ui/PaymentHistoryModal";
 
-// API setup
-const api = create({
-  baseURL: baseUrl,
-});
+// API helper function (Edge Function compatible)
+async function apiGet(endpoint: string, params: Record<string, any> = {}, headers: Record<string, string> = {}) {
+  const url = new URL(`${baseUrl}${endpoint}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      url.searchParams.append(key, String(value));
+    }
+  });
+  
+  const response = await fetch(url.toString(), {
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
+  });
+  
+  const data = await response.json().catch(() => null);
+  
+  return {
+    ok: response.ok,
+    data,
+  };
+}
 
 // Types
 interface Company {
@@ -119,7 +137,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 
   let companies;
   try {
-    const response = (await api.get(
+    const response = await apiGet(
       "/company",
       {
         search: searchTerm,
@@ -127,15 +145,18 @@ export const loader: LoaderFunction = async ({ request }) => {
         page: page,
       },
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Accept-Charset": "UTF-8",
-        },
+        Authorization: `Bearer ${token}`,
+        "Accept-Charset": "UTF-8",
       }
-    )) as any;
+    );
 
-    if (!response.ok) {
-      return (companies = []);
+    if (!response.ok || !response.data) {
+      return json({
+        companies: [],
+        registrationTrends: [],
+        token,
+        totalCompanies: 0,
+      });
     }
 
     companies =
