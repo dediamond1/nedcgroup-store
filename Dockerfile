@@ -1,27 +1,30 @@
-# Use the official Node.js 18 image as a parent image
-FROM node:18-alpine
+# Use the official Node.js 20 image as a parent image
+FROM node:20-alpine
+
+# Install pnpm
+RUN npm install -g pnpm
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if available)
-COPY package*.json ./
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN npm ci --force
+RUN pnpm install --frozen-lockfile
 
 # Copy the rest of your app's source code
 COPY . .
 
-# Build your Next.js app
-RUN npm run build
+# Build your Remix app
+RUN pnpm build
 
 # Expose the port your app runs on
 EXPOSE 3005
 
-# Set environment variable
-ENV NODE_ENV production
-ENV SESSION_SECRET aksjcnajscnjkacnjkacsnjkn
+# Set environment variables
+ENV NODE_ENV=production
+ENV SESSION_SECRET=aksjcnajscnjkacnjkacsnjkn
 
 # Start the app
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]
