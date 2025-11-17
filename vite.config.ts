@@ -36,6 +36,7 @@ export default defineConfig({
         });
       },
     },
+    netlifyPlugin(),
     remix({
       future: {
         v3_fetcherPersist: true,
@@ -45,7 +46,6 @@ export default defineConfig({
         v3_lazyRouteDiscovery: true,
       },
     }),
-    netlifyPlugin(),
     tsconfigPaths(),
   ],
 });

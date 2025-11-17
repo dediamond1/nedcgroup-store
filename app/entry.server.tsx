@@ -21,38 +21,49 @@ export default async function handleRequest(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   loadContext: AppLoadContext
 ) {
-  // Silently handle Chrome DevTools .well-known requests
-  const url = new URL(request.url);
-  if (url.pathname.startsWith("/.well-known/")) {
-    return new Response(null, { status: 404 });
-  }
-
-  const userAgent = request.headers.get("user-agent") || "";
-  const isBotUser = isbot(userAgent);
-
-  responseHeaders.set("Content-Type", "text/html");
-
-  const stream = await renderToReadableStream(
-    <RemixServer
-      context={remixContext}
-      url={request.url}
-      abortDelay={ABORT_DELAY}
-    />,
-    {
-      signal: request.signal,
-      onError(error: unknown) {
-        console.error(error);
-        responseStatusCode = 500;
-      },
+  try {
+    // Silently handle Chrome DevTools .well-known requests
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/.well-known/")) {
+      return new Response(null, { status: 404 });
     }
-  );
 
-  if (isBotUser) {
-    await stream.allReady;
+    const userAgent = request.headers.get("user-agent") || "";
+    const isBotUser = isbot(userAgent);
+
+    responseHeaders.set("Content-Type", "text/html");
+
+    const stream = await renderToReadableStream(
+      <RemixServer
+        context={remixContext}
+        url={request.url}
+        abortDelay={ABORT_DELAY}
+      />,
+      {
+        signal: request.signal,
+        onError(error: unknown) {
+          console.error("Streaming error:", error);
+          responseStatusCode = 500;
+        },
+      }
+    );
+
+    if (isBotUser) {
+      await stream.allReady;
+    }
+
+    return new Response(stream, {
+      headers: responseHeaders,
+      status: responseStatusCode,
+    });
+  } catch (error) {
+    console.error("Error in handleRequest:", error);
+    return new Response(
+      `Internal Server Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      {
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+      }
+    );
   }
-
-  return new Response(stream, {
-    headers: responseHeaders,
-    status: responseStatusCode,
-  });
 }
