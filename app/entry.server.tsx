@@ -4,14 +4,17 @@
  * For more information, see https://remix.run/file-conventions/entry.server
  */
 
+import { PassThrough } from "node:stream";
+
 import type { AppLoadContext, EntryContext } from "@remix-run/node";
+import { createReadableStreamFromReadable } from "@remix-run/node";
 import { RemixServer } from "@remix-run/react";
 import { isbot } from "isbot";
-import { renderToReadableStream } from "react-dom/server";
+import { renderToPipeableStream } from "react-dom/server";
 
 const ABORT_DELAY = 5_000;
 
-export default async function handleRequest(
+export default function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
@@ -21,49 +24,123 @@ export default async function handleRequest(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   loadContext: AppLoadContext
 ) {
-  try {
-    // Silently handle Chrome DevTools .well-known requests
-    const url = new URL(request.url);
-    if (url.pathname.startsWith("/.well-known/")) {
-      return new Response(null, { status: 404 });
-    }
+  // Silently handle Chrome DevTools .well-known requests
+  const url = new URL(request.url);
+  if (url.pathname.startsWith("/.well-known/")) {
+    return new Response(null, { status: 404 });
+  }
 
-    const userAgent = request.headers.get("user-agent") || "";
-    const isBotUser = isbot(userAgent);
+  return isbot(request.headers.get("user-agent") || "")
+    ? handleBotRequest(
+        request,
+        responseStatusCode,
+        responseHeaders,
+        remixContext
+      )
+    : handleBrowserRequest(
+        request,
+        responseStatusCode,
+        responseHeaders,
+        remixContext
+      );
+}
 
-    responseHeaders.set("Content-Type", "text/html");
-
-    const stream = await renderToReadableStream(
+function handleBotRequest(
+  request: Request,
+  responseStatusCode: number,
+  responseHeaders: Headers,
+  remixContext: EntryContext
+) {
+  return new Promise((resolve, reject) => {
+    let shellRendered = false;
+    const { pipe, abort } = renderToPipeableStream(
       <RemixServer
         context={remixContext}
         url={request.url}
         abortDelay={ABORT_DELAY}
       />,
       {
-        signal: request.signal,
+        onAllReady() {
+          shellRendered = true;
+          const body = new PassThrough();
+          const stream = createReadableStreamFromReadable(body);
+
+          responseHeaders.set("Content-Type", "text/html");
+
+          resolve(
+            new Response(stream, {
+              headers: responseHeaders,
+              status: responseStatusCode,
+            })
+          );
+
+          pipe(body);
+        },
+        onShellError(error: unknown) {
+          reject(error);
+        },
         onError(error: unknown) {
-          console.error("Streaming error:", error);
           responseStatusCode = 500;
+          // Log streaming rendering errors from inside the shell.  Don't log
+          // errors encountered during initial shell rendering since they'll
+          // reject and get logged in handleDocumentRequest.
+          if (shellRendered) {
+            console.error(error);
+          }
         },
       }
     );
 
-    if (isBotUser) {
-      await stream.allReady;
-    }
+    setTimeout(abort, ABORT_DELAY);
+  });
+}
 
-    return new Response(stream, {
-      headers: responseHeaders,
-      status: responseStatusCode,
-    });
-  } catch (error) {
-    console.error("Error in handleRequest:", error);
-    return new Response(
-      `Internal Server Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+function handleBrowserRequest(
+  request: Request,
+  responseStatusCode: number,
+  responseHeaders: Headers,
+  remixContext: EntryContext
+) {
+  return new Promise((resolve, reject) => {
+    let shellRendered = false;
+    const { pipe, abort } = renderToPipeableStream(
+      <RemixServer
+        context={remixContext}
+        url={request.url}
+        abortDelay={ABORT_DELAY}
+      />,
       {
-        status: 500,
-        headers: { "Content-Type": "text/plain" },
+        onShellReady() {
+          shellRendered = true;
+          const body = new PassThrough();
+          const stream = createReadableStreamFromReadable(body);
+
+          responseHeaders.set("Content-Type", "text/html");
+
+          resolve(
+            new Response(stream, {
+              headers: responseHeaders,
+              status: responseStatusCode,
+            })
+          );
+
+          pipe(body);
+        },
+        onShellError(error: unknown) {
+          reject(error);
+        },
+        onError(error: unknown) {
+          responseStatusCode = 500;
+          // Log streaming rendering errors from inside the shell.  Don't log
+          // errors encountered during initial shell rendering since they'll
+          // reject and get logged in handleDocumentRequest.
+          if (shellRendered) {
+            console.error(error);
+          }
+        },
       }
     );
-  }
+
+    setTimeout(abort, ABORT_DELAY);
+  });
 }
