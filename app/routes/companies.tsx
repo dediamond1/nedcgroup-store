@@ -56,6 +56,93 @@ async function apiGet(endpoint: string, params: Record<string, any> = {}, header
   };
 }
 
+// API helper object with methods for different HTTP verbs
+const api = {
+  async get(endpoint: string, params: Record<string, any> = {}, options: { headers?: Record<string, string> } = {}) {
+    const url = new URL(`${baseUrl}${endpoint}`);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.append(key, String(value));
+      }
+    });
+    
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+    
+    const data = await response.json().catch(() => null);
+    
+    return {
+      ok: response.ok,
+      data,
+    };
+  },
+
+  async post(endpoint: string, body: any = {}, options: { headers?: Record<string, string> } = {}) {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      body: JSON.stringify(body),
+    });
+    
+    const data = await response.json().catch(() => null);
+    
+    return {
+      ok: response.ok,
+      data,
+    };
+  },
+
+  async put(endpoint: string, body: any = {}, options: { headers?: Record<string, string> } = {}) {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      body: JSON.stringify(body),
+    });
+    
+    const data = await response.json().catch(() => null);
+    
+    return {
+      ok: response.ok,
+      data,
+    };
+  },
+
+  async delete(endpoint: string, params: Record<string, any> = {}, options: { headers?: Record<string, string> } = {}) {
+    const url = new URL(`${baseUrl}${endpoint}`);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.append(key, String(value));
+      }
+    });
+    
+    const response = await fetch(url.toString(), {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+    
+    const data = await response.json().catch(() => null);
+    
+    return {
+      ok: response.ok,
+      data,
+    };
+  },
+};
+
 // Types
 interface Company {
   _id: string;

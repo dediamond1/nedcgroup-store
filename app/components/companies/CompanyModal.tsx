@@ -12,7 +12,7 @@ interface CompanyFormData {
   companyNumber: string;
   managerEmail: string;
   creditLimit: string;
-  deviceSerialNumber: string;
+  deviceSerialNumber?: string; // Optional - can be empty or any length
   orgNumber: number;
   city: string;
   postNumber: string;
@@ -86,8 +86,7 @@ export function CompanyModal({
       newErrors.managerEmail = "Manager email is required";
     if (!company.creditLimit)
       newErrors.creditLimit = "Credit limit is required";
-    if (!company.deviceSerialNumber)
-      newErrors.deviceSerialNumber = "Device Serial Number is required";
+    // deviceSerialNumber validation removed - can be empty or any length
     if (!company.orgNumber)
       newErrors.orgNumber = "Organization number is required";
     if (!company.address.city) newErrors["address.city"] = "City is required";
@@ -219,14 +218,15 @@ export function CompanyModal({
         </div>
 
         <div>
-          <Label htmlFor="deviceSerialNumber">Device Serial Number</Label>
+          <Label htmlFor="deviceSerialNumber">Device Serial Number (Optional)</Label>
           <Input
             type="text"
             id="deviceSerialNumber"
             name="deviceSerialNumber"
-            value={company.deviceSerialNumber}
+            value={company.deviceSerialNumber || ""}
             onChange={handleChange}
             className={errors.deviceSerialNumber ? "border-red-500" : ""}
+            placeholder="Optional - can be empty or any length"
           />
           {errors.deviceSerialNumber && (
             <p className="text-red-500 text-sm mt-1">
